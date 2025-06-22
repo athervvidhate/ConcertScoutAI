@@ -1,0 +1,50 @@
+import asyncio
+
+from concert_scout_agent.agent import concert_scout_agent
+from dotenv import load_dotenv
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+
+load_dotenv()
+
+session_service = InMemorySessionService()
+
+initial_state = {
+    "user_name": "Atherv V",
+    "interaction_history": [],
+    "user_artists": [],
+}
+
+runner = Runner(agent=concert_scout_agent, session_service=session_service)
+
+async def main_async():
+    #await runner.run_async(initial_state)
+    APP_NAME = "Concert Scout"
+    USER_ID = "atherv"
+
+    new_session = session_service.create_session(
+        app_name=APP_NAME,
+        user_id=USER_ID,
+        state=initial_state,
+    )
+    SESSION_ID = new_session.id
+
+    runner = Runner(agent=concert_scout_agent, session_service=session_service, app_name=APP_NAME)
+
+
+    print("Welcome to the Concert Scout AI!")
+    print("Type 'exit' or 'quit' to end the conversation.\n")
+    while True:
+        user_input = input("You: ")
+        if user_input.lower() in ["exit", "quit"]:
+            print("Ending conversation. Goodbye!")
+            break
+
+
+def main():
+    """Entry point for the application."""
+    asyncio.run(main_async())
+
+
+if __name__ == "__main__":
+    main()
