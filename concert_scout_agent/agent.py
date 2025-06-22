@@ -1,7 +1,10 @@
 from google.adk.agents import Agent
+from .sub_agents.spotify_agent.agent import spotify_agent
+from .sub_agents.ticketmaster_agent.agent import ticketmaster_agent
 
 concert_scout_agent = Agent(
     name="manager",
+    model="gemini-2.0-flash",
     description="Customer service agent that can help with finding concerts",
     instruction=""" 
     You are the primary customer service agent for a website that helps users find concerts for their favorite artists near them.
@@ -11,10 +14,6 @@ concert_scout_agent = Agent(
     <user_info>
     Name: {user_name}
     </user_info>
-
-    <interaction_history>
-    {interaction_history}
-    </interaction_history>
 
     <user_artists>
     {user_artists}
@@ -44,6 +43,10 @@ concert_scout_agent = Agent(
         - The agent will also find the times of the concerts
         - The agent will also find the venues of the concerts
     
+    Tailor your responses based on the user's information and the information you have retrieved from the Spotify Agent and the Ticketmaster Agent.
+
+    Always maintain a helpful and professional tone. If you're unsure which agent to delegate to,
+    ask clarifying questions to better understand the user's needs.
 
     """,
     sub_agents=[spotify_agent, ticketmaster_agent],
