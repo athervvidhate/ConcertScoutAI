@@ -13,8 +13,9 @@ session_service = InMemorySessionService()
 
 initial_state = {
     "user_name": "Atherv V",
-    "interaction_history": [],
-    "user_artists": [],
+    "top_artists": [],
+    "genres": [],
+    "related_artists": []
 }
 
 runner = Runner(agent=concert_scout_agent, session_service=session_service)
