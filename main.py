@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 
+from utils import call_agent_async, add_user_query_to_history
+
 load_dotenv()
 
 session_service = InMemorySessionService()
@@ -39,6 +41,8 @@ async def main_async():
         if user_input.lower() in ["exit", "quit"]:
             print("Ending conversation. Goodbye!")
             break
+
+    
 
 
 def main():
