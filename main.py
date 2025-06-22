@@ -42,7 +42,8 @@ async def main_async():
             print("Ending conversation. Goodbye!")
             break
 
-    
+        add_user_query_to_history(session_service, APP_NAME, USER_ID, SESSION_ID, user_input)
+        await call_agent_async(runner, USER_ID, SESSION_ID, user_input)
 
 
 def main():
