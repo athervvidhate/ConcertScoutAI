@@ -9,6 +9,8 @@ from spotipy.oauth2 import SpotifyClientCredentials
 import os
 from .sub_agents.related_artists_agent.agent import related_artists_agent
 
+#FIXME: the current iteration gets the top genres from the top artists. This is not correct. We need to get the genres from the playlist.
+
 # Environment variables
 CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")

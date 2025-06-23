@@ -11,7 +11,18 @@ class RelatedArtists(BaseModel):
 def get_related_artists(tool_context, artists: List[str], genres: List[str]) -> dict:
     """
     Find related artists based on input artists and genres using Google Search.
-    Saves the related artists to the state.
+    Saves the related artists to the tool context state.
+
+    Args:
+        tool_context (ToolContext): Context object containing state and session info
+        artists (List[str]): List of artist names to find similar artists for
+        genres (List[str]): List of genres to help filter related artist results
+
+    Returns:
+        Dict containing:
+            - status (str): "success" or "error"
+            - related_artists (List[str]): List of related artist names if successful
+            - error_message (str): Error description if status is "error"
     """
     try:
         # Use Google Search to find related artists
