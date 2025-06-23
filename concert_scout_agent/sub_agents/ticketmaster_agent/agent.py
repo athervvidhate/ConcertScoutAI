@@ -1,22 +1,21 @@
 from google.adk.agents import Agent
 from google.adk.tools.tool_context import ToolContext
-from pydantic import BaseModel, Field
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import os
 import requests
 
 TM_KEY = os.getenv("TM_KEY")
 
-class TicketmasterConcert(BaseModel):
-    concerts_artists: List[dict] = Field(
-        description="The concerts for the artists in the user's location."
-    )
-    concerts_genre: List[dict] = Field(
-        description="The concerts for the user's top popular genre in the user's location."
-    )
-    concerts_related: List[dict] = Field(
-        description="The concerts for the user's related artists in the user's location."
-    )
+# class TicketmasterConcert(BaseModel):
+#     concerts_artists: List[dict] = Field(
+#         description="The concerts for the artists in the user's location."
+#     )
+#     concerts_genre: List[dict] = Field(
+#         description="The concerts for the user's top popular genre in the user's location."
+#     )
+#     concerts_related: List[dict] = Field(
+#         description="The concerts for the user's related artists in the user's location."
+#     )
 
 def _extract_event_info(event: dict) -> dict:
     """Extract relevant event information from Ticketmaster API response."""
@@ -122,41 +121,18 @@ ticketmaster_agent = Agent(
     instruction="""
     You are a Ticketmaster retrieval agent for the Concert Scout AI.
     Your role is to retrieve the concerts for the artists in the user's location.
-    The user may provide an address, a city, a zip code, or a coordinates (latitude and longitude) to find the concerts.
+    The location will be in the session state passed to you, within the playlist_info key.
     You MUST convert the user's location to a latitude and longitude before using the Ticketmaster API.
-    
-
-    **User Information:**
-    <user_info>
-    Name: {user_name}
-    </user_info>
-
-    <top_artists>
-    {top_artists}
-    </top_artists>
-
-    <genres>
-    {genres}
-    </genres>
-
-    <related_artists>
-    {related_artists}
-    </related_artists>
 
     There a preset list of genres that you can use to find the concerts.
     Those genres are: Alternative, Ballads/Romantic, Blues, Children's Music, Classical, Country, Dance/Electronic, Folk, Hip-Hop/Rap, Holiday, Jazz, Latin, Medieval/Renaissance, Metal, New Age, Other, Pop, R&B, Reggae, Religious, Rock, World
 
-    Based on the genres inputted, make your best guess of the genres of the artists to query for. You may only pass one genre at a time to the Ticketmaster API Tool.
+    Based on the genres from the playlist_info key, make your best guess of the genres of the artists to query for. You may only pass one genre at a time to the Ticketmaster API Tool.
 
-
-    When the user provides a list of artists, you will need to find the concerts for the artists in the user's location.
-    When the user provides a list of genres, you will need to find the concerts for the artists in the user's location in that genre.
-    When the user provides a list of artists and a genre, you will need to find the concerts for the artists in the user's location in that genre.
-
-
+    You will need to find the concerts for the artists in the user's location, the concerts for the top genre in the user's location, and the concerts for the related artists in the user's location.
 
     You have access to the following tools:
-    1. Ticketmaster API Tool: to retrieve the concerts for the artists in the user's location
+    1. Ticketmaster API Tool: to retrieve the concerts
 
     IMPORTANT: Your response MUST be valid JSON matching this structure:
     {
@@ -168,6 +144,5 @@ ticketmaster_agent = Agent(
     DO NOT include any explanations or additional text outside the JSON response.
     """,
     tools=[ticketmaster_api],
-    output_schema=TicketmasterConcert,
     output_key="ticketmaster_concerts",
 )

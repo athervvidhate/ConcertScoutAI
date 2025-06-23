@@ -3,10 +3,10 @@ from google.adk.tools import google_search
 from pydantic import BaseModel, Field
 from typing import List
 
-class RelatedArtists(BaseModel):
-    related_artists: List[str] = Field(
-        description="The related artists based on the artists and genres. Should be a list of strings."
-    )
+# class RelatedArtists(BaseModel):
+#     related_artists: List[str] = Field(
+#         description="The related artists based on the artists and genres. Should be a list of strings."
+#     )
 
 def get_related_artists(tool_context, artists: List[str], genres: List[str]) -> dict:
     """
@@ -60,16 +60,8 @@ related_artists_agent = Agent(
     model="gemini-2.0-flash",
     description="Related artists agent for the Concert Scout AI",
     instruction="""
-    You are a related artists agent for the Concert Scout AI. You will be given a list of artists and genres and you will need to find 5 related artists based on the artists and genres.
+    You are a related artists agent for the Concert Scout AI. You will also use the playlist_info from the spotify_agent, which has the top artists and genres and you will need to find 5 related artists based on the artists and genres.
     You will use Google Search to find the related artists.
-
-    <artists>
-    {top_artists}
-    </artists>
-
-    <genres>
-    {genres}
-    </genres>
 
     You have access to the following tools:
     1. google_search: to find related artists based on the artists and genres
@@ -82,6 +74,5 @@ related_artists_agent = Agent(
     DO NOT include any explanations or additional text outside the JSON response.
     """,
     tools=[get_related_artists],
-    output_schema=RelatedArtists,
-    output_key="related_artists",
+    output_key="related_artists"
 )

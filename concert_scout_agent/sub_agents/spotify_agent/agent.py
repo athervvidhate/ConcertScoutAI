@@ -1,33 +1,30 @@
 from google.adk.agents import Agent
-from google.adk.tools.agent_tool import AgentTool
 from google.adk.tools.tool_context import ToolContext
-from pydantic import BaseModel, Field
 from collections import Counter
 from typing import Dict, List, Tuple
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import os
-from .sub_agents.related_artists_agent.agent import related_artists_agent
 
 #FIXME: the current iteration gets the top genres from the top artists. This is not correct. We need to get the genres from the playlist.
 
 # Environment variables
-CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
-CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+CLIENT_ID = os.getenv("SPOTIFY_CLIENT")
+CLIENT_SECRET = os.getenv("SPOTIFY_SECRET")
 
 # Constants
 TOP_ARTISTS_LIMIT = 5
 
-class SpotifyPlaylist(BaseModel):       
-    top_artists: List[str] = Field(
-        description="The top artists in the playlist. Should be a list of strings."
-    )
-    genres: List[str] = Field(
-        description="The genres of the artists. Should be a list of strings."
-    )
-    related_artists: List[str] = Field(
-        description="The related artists based on the top artists and genres. Should be a list of strings."
-    )
+# class SpotifyPlaylist(BaseModel):       
+#     top_artists: List[str] = Field(
+#         description="The top artists in the playlist. Should be a list of strings."
+#     )
+#     genres: List[str] = Field(
+#         description="The genres of the artists. Should be a list of strings."
+#     )
+#     related_artists: List[str] = Field(
+#         description="The related artists based on the top artists and genres. Should be a list of strings."
+#     )
 
 class SpotifyError(Exception):
     """Custom exception for Spotify API errors"""
@@ -168,46 +165,27 @@ spotify_agent = Agent(
     instruction="""
     You are a Spotify retrieval agent for the Concert Scout AI.
     Your role is to retrieve the user's Spotify playlist and return the top artists in the playlist as well as the genres of the artists.
-    You must also get 5 related artists based on the top artists and genres. You will use Google Search to find the related artists.
+    You will also return the location that the user inputted. Don't change the location.
 
-    **User Information:**
-    <user_info>
-    Name: {user_name}
-    </user_info>
+    **IMPORTANT INSTRUCTIONS:**
+    1. When the user provides a Spotify playlist ID, URI, or URL, you MUST use the spotify_api tool to analyze the playlist
+    2. Extract the playlist ID from URLs like "https://open.spotify.com/playlist/5KofGihC7bs0WQ416UDBub?si=97ef973ba94d4bb9" - use only the ID part: "5KofGihC7bs0WQ416UDBub"
+    3. Call the spotify_api tool with the playlist ID
+    4. Return the final results in JSON format
 
-    <top_artists>
-    {top_artists}
-    </top_artists>
+    **Available Tools:**
+    1. spotify_api: Use this to retrieve and analyze Spotify playlists
 
-    <genres>
-    {genres}
-    </genres>
-
-    <related_artists>
-    {related_artists}
-    </related_artists>
-
-    When the user provides a Spotify playlist ID, URI, or URL, you will analyze the playlist to find the top artists and their genres.
-    When the user just provides a list of artists, return just the artists in the list. The genres will be empty.
-    When the user just provides a genre, return the genre. The top artists will be empty.
-    When the user provides a list of artists and a genre, return the artists in the top artists list and the genres to the genre list.
-
-    You have access to the following tools:
-    1. spotify_api: to retrieve the user's Spotify playlist, get the top artists in the playlist, and get the genres of the artists
-
-    You have access to the following specialized agents:
-    1. related_artists_agent: to find related artists based on the top artists and genres
-    
-    IMPORTANT: Your response MUST be valid JSON matching this structure:
+    **Response Format:**
+    After using the tools, return your response in this JSON format:
     {
         "top_artists": ["Artist 1", "Artist 2", "Artist 3", ...],
         "genres": ["Genre 1", "Genre 2", "Genre 3", ...],
-        "related_artists": ["Artist 1", "Artist 2", "Artist 3", ...]
+        "location": "Location 1"
     }
 
-    DO NOT include any explanations or additional text outside the JSON response.
+    **CRITICAL:** Always use the spotify_api tool first when given a playlist URL or ID. Do not make up data.
     """,
-    tools=[spotify_api, AgentTool(related_artists_agent)],
-    output_schema=SpotifyPlaylist,
-    output_key="spotify_playlist",
+    tools=[spotify_api],
+    output_key="playlist_info",
 )

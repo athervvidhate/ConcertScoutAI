@@ -13,19 +13,26 @@ session_service = InMemorySessionService()
 
 initial_state = {
     "user_name": "Atherv V",
-    "top_artists": [],
-    "genres": [],
+    "playlist_info": {
+        "top_artists": [],
+        "genres": [],
+        "location": ""
+    },
     "related_artists": []
+    # "top_artists": [],
+    # "genres": [],
+    # "related_artists": [],
+    # "interaction_history": []
 }
 
-runner = Runner(agent=concert_scout_agent, session_service=session_service)
+runner = Runner(agent=concert_scout_agent, session_service=session_service, app_name="Concert Scout AI")
 
 async def main_async():
     #await runner.run_async(initial_state)
     APP_NAME = "Concert Scout"
     USER_ID = "atherv"
 
-    new_session = session_service.create_session(
+    new_session = await session_service.create_session(
         app_name=APP_NAME,
         user_id=USER_ID,
         state=initial_state,
@@ -43,7 +50,7 @@ async def main_async():
             print("Ending conversation. Goodbye!")
             break
 
-        add_user_query_to_history(session_service, APP_NAME, USER_ID, SESSION_ID, user_input)
+        await add_user_query_to_history(session_service, APP_NAME, USER_ID, SESSION_ID, user_input)
         await call_agent_async(runner, USER_ID, SESSION_ID, user_input)
 
 
