@@ -3,11 +3,6 @@ from google.adk.tools import google_search
 from pydantic import BaseModel, Field
 from typing import List
 
-# class RelatedArtists(BaseModel):
-#     related_artists: List[str] = Field(
-#         description="The related artists based on the artists and genres. Should be a list of strings."
-#     )
-
 def get_related_artists(tool_context, artists: List[str], genres: List[str]) -> dict:
     """
     Find related artists based on input artists and genres using Google Search.

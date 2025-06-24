@@ -15,17 +15,6 @@ CLIENT_SECRET = os.getenv("SPOTIFY_SECRET")
 # Constants
 TOP_ARTISTS_LIMIT = 5
 
-# class SpotifyPlaylist(BaseModel):       
-#     top_artists: List[str] = Field(
-#         description="The top artists in the playlist. Should be a list of strings."
-#     )
-#     genres: List[str] = Field(
-#         description="The genres of the artists. Should be a list of strings."
-#     )
-#     related_artists: List[str] = Field(
-#         description="The related artists based on the top artists and genres. Should be a list of strings."
-#     )
-
 class SpotifyError(Exception):
     """Custom exception for Spotify API errors"""
     pass
