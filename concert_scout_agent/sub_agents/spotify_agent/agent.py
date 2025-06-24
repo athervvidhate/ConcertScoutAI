@@ -114,6 +114,7 @@ def spotify_api(tool_context: ToolContext, playlist_id: str) -> Dict:
         # Get genres for top artists
         genres = _get_artist_genres(sp, top_artist_ids)
 
+        #TODO: This is probably not necessary, check if it's needed.
         # Saves the top artists and genres to the state
         current_top_artists = tool_context.state.get("top_artists", [])
         current_genres = tool_context.state.get("genres", [])

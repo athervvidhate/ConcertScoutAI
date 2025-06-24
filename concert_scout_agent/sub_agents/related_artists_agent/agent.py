@@ -31,7 +31,8 @@ def get_related_artists(tool_context, artists: List[str], genres: List[str]) -> 
         related_artists = []
         for result in search_results[:5]:  # Limit to top 5 results
             related_artists.append(result['title'].split('-')[0].strip())
-            
+
+        #TODO: This is probably not necessary, check if it's needed.
         # Save to state
         current_related_artists = tool_context.state.get("related_artists", [])
         new_related_artists = current_related_artists + related_artists

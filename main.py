@@ -11,35 +11,13 @@ load_dotenv()
 
 session_service = InMemorySessionService()
 
-initial_state = {
-    "user_name": "Atherv V",
-    "playlist_info": {
-        "top_artists": [],
-        "genres": [],
-        "location": ""
-    },
-    "related_artists": [],
-    "ticketmaster_concerts": [
-        {
-            "concerts_artists": [],
-            "concerts_genre": [],
-            "concerts_related": []
-        }
-    ],
-    "final_recommendations": []
-}
-
-runner = Runner(agent=root_agent, session_service=session_service, app_name="Concert Scout AI")
-
 async def main_async():
-    #await runner.run_async(initial_state)
     APP_NAME = "Concert Scout"
     USER_ID = "atherv"
 
     new_session = await session_service.create_session(
         app_name=APP_NAME,
         user_id=USER_ID,
-#        state=initial_state,
     )
     SESSION_ID = new_session.id
 
