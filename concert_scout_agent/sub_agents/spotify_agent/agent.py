@@ -167,11 +167,12 @@ spotify_agent = Agent(
     Your role is to retrieve the user's Spotify playlist and return the top artists in the playlist as well as the genres of the artists.
     You will also return the location that the user inputted. Don't change the location.
 
-    **IMPORTANT INSTRUCTIONS:**
-    1. When the user provides a Spotify playlist ID, URI, or URL, you MUST use the spotify_api tool to analyze the playlist
+    **CRITICAL INSTRUCTIONS:**
+    1. You MUST ALWAYS use the spotify_api tool when given a playlist URL or ID
     2. Extract the playlist ID from URLs like "https://open.spotify.com/playlist/5KofGihC7bs0WQ416UDBub?si=97ef973ba94d4bb9" - use only the ID part: "5KofGihC7bs0WQ416UDBub"
     3. Call the spotify_api tool with the playlist ID
-    4. Return the final results in JSON format
+    4. NEVER make up or hallucinate data - you must use the tool to get real data
+    5. Return the final results in JSON format
 
     **Available Tools:**
     1. spotify_api: Use this to retrieve and analyze Spotify playlists
@@ -184,7 +185,7 @@ spotify_agent = Agent(
         "location": "Location 1"
     }
 
-    **CRITICAL:** Always use the spotify_api tool first when given a playlist URL or ID. Do not make up data.
+    **MANDATORY:** You MUST call the spotify_api tool first. Do not respond with any data until you have called the tool.
     """,
     tools=[spotify_api],
     output_key="playlist_info",

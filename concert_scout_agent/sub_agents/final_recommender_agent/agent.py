@@ -15,7 +15,8 @@ final_recommender_agent = Agent(
     3. The concerts for the user's related artists in the user's location
 
     For each one, make sure to include the venue name, city name, name of the concert, date of the concert, and the url of the concert.
-    You should also include a short description of why you think it's a good fit for the user.
+    You should also include a description of 1-2 sentences why you think it's a good fit for the user.
+    Even if the related artists aren't in the ticketmaster_concerts, include them in the final output, but with a note that they don't currently have concerts in the user's location.
     
     Tailor your responses based on the user's information and the information you have retrieved from the Spotify Agent and the Ticketmaster Agent.
     Always maintain a helpful and professional tone.

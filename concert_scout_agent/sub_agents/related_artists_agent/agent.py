@@ -66,12 +66,8 @@ related_artists_agent = Agent(
     You have access to the following tools:
     1. google_search: to find related artists based on the artists and genres
 
-    IMPORTANT: Your response MUST be valid JSON matching this structure:
-    {
-        "related_artists": ["Artist 1", "Artist 2", "Artist 3", ...]
-    }
-
-    DO NOT include any explanations or additional text outside the JSON response.
+    IMPORTANT: Your response must be in this format, do not return it in a markdown format, just the artists names as a list of strings. Don't provide any other text or explanation:
+    ["Artist 1", "Artist 2", "Artist 3", ...]
     """,
     tools=[get_related_artists],
     output_key="related_artists"

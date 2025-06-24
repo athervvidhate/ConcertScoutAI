@@ -1,6 +1,6 @@
 import asyncio
 
-from concert_scout_agent.agent import concert_scout_agent
+from concert_scout_agent.agent import root_agent
 from dotenv import load_dotenv
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -18,14 +18,18 @@ initial_state = {
         "genres": [],
         "location": ""
     },
-    "related_artists": []
-    # "top_artists": [],
-    # "genres": [],
-    # "related_artists": [],
-    # "interaction_history": []
+    "related_artists": [],
+    "ticketmaster_concerts": [
+        {
+            "concerts_artists": [],
+            "concerts_genre": [],
+            "concerts_related": []
+        }
+    ],
+    "final_recommendations": []
 }
 
-runner = Runner(agent=concert_scout_agent, session_service=session_service, app_name="Concert Scout AI")
+runner = Runner(agent=root_agent, session_service=session_service, app_name="Concert Scout AI")
 
 async def main_async():
     #await runner.run_async(initial_state)
@@ -35,11 +39,11 @@ async def main_async():
     new_session = await session_service.create_session(
         app_name=APP_NAME,
         user_id=USER_ID,
-        state=initial_state,
+#        state=initial_state,
     )
     SESSION_ID = new_session.id
 
-    runner = Runner(agent=concert_scout_agent, session_service=session_service, app_name=APP_NAME)
+    runner = Runner(agent=root_agent, session_service=session_service, app_name=APP_NAME)
 
 
     print("Welcome to the Concert Scout AI!")

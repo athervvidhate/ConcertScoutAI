@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 
 from google.genai import types
 
@@ -124,8 +125,27 @@ async def display_state(
         related_artists = session.state.get("related_artists", [])
         if related_artists:
             print("👥 Related Artists:")
-            for artist in related_artists:
-                print(f"  - {artist}")
+            # Handle case where related_artists might be a JSON string
+            if isinstance(related_artists, str):
+                try:
+                    # Try to parse as JSON
+                    parsed = json.loads(related_artists)
+                    if isinstance(parsed, dict) and "related_artists" in parsed:
+                        related_artists = parsed["related_artists"]
+                    elif isinstance(parsed, list):
+                        related_artists = parsed
+                    else:
+                        related_artists = [related_artists]  # Fallback to treating as single item
+                except json.JSONDecodeError:
+                    # If it's not valid JSON, treat as a single string
+                    related_artists = [related_artists]
+            
+            # Now display the related artists
+            if isinstance(related_artists, list):
+                for artist in related_artists:
+                    print(f"  - {artist}")
+            else:
+                print(f"  - {related_artists}")
         else:
             print("👥 Related Artists: None")
 
@@ -219,17 +239,17 @@ async def process_agent_response(event):
         ):
             final_response = event.content.parts[0].text.strip()
             # Use colors and formatting to make the final response stand out
-            print(
-                f"\n{Colors.BG_BLUE}{Colors.WHITE}{Colors.BOLD}╔══ AGENT RESPONSE ═════════════════════════════════════════{Colors.RESET}"
-            )
-            print(f"{Colors.CYAN}{Colors.BOLD}{final_response}{Colors.RESET}")
-            print(
-                f"{Colors.BG_BLUE}{Colors.WHITE}{Colors.BOLD}╚═════════════════════════════════════════════════════════════{Colors.RESET}\n"
-            )
-        else:
-            print(
-                f"\n{Colors.BG_RED}{Colors.WHITE}{Colors.BOLD}==> Final Agent Response: [No text content in final event]{Colors.RESET}\n"
-            )
+        #     print(
+        #         f"\n{Colors.BG_BLUE}{Colors.WHITE}{Colors.BOLD}╔══ AGENT RESPONSE ═════════════════════════════════════════{Colors.RESET}"
+        #     )
+        #     print(f"{Colors.CYAN}{Colors.BOLD}{final_response}{Colors.RESET}")
+        #     print(
+        #         f"{Colors.BG_BLUE}{Colors.WHITE}{Colors.BOLD}╚═════════════════════════════════════════════════════════════{Colors.RESET}\n"
+        #     )
+        # else:
+        #     print(
+        #         f"\n{Colors.BG_RED}{Colors.WHITE}{Colors.BOLD}==> Final Agent Response: [No text content in final event]{Colors.RESET}\n"
+        #     )
 
     return final_response
 
@@ -244,13 +264,13 @@ async def call_agent_async(runner, user_id, session_id, query):
     agent_name = None
 
     # Display state before processing the message
-    await display_state(
-        runner.session_service,
-        runner.app_name,
-        user_id,
-        session_id,
-        "State BEFORE processing",
-    )
+    # await display_state(
+    #     runner.session_service,
+    #     runner.app_name,
+    #     user_id,
+    #     session_id,
+    #     "State BEFORE processing",
+    # )
 
     try:
         async for event in runner.run_async(
@@ -277,13 +297,13 @@ async def call_agent_async(runner, user_id, session_id, query):
             final_response_text,
         )
 
-        await display_state(
-        runner.session_service,
-        runner.app_name,
-        user_id,
-        session_id,
-        "State AFTER processing",
-    )
+    #     await display_state(
+    #     runner.session_service,
+    #     runner.app_name,
+    #     user_id,
+    #     session_id,
+    #     "State AFTER processing",
+    # )
 
     print(f"{Colors.YELLOW}{'-' * 30}{Colors.RESET}")
     return final_response_text
