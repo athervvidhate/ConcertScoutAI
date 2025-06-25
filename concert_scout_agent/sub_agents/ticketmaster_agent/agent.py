@@ -2,8 +2,29 @@ from google.adk.agents import Agent
 from typing import Dict, List
 import os
 import requests
+from google.adk.agents.callback_context import CallbackContext
+from google.genai import types
+from typing import Optional
 
 TM_KEY = os.getenv("TM_KEY")
+
+def after_agent_callback(callback_context: CallbackContext) -> Optional[types.Content]:
+    """
+    Simple callback that logs when the agent finishes processing a request.
+
+    Args:
+        callback_context: Contains state and context information
+
+    Returns:
+        None to continue with normal agent processing
+    """
+    # Get the session state
+    state = callback_context.state
+    output_ticketmaster_concerts = state.get("ticketmaster_concerts", None)
+    print(f"Output: {output_ticketmaster_concerts}, {state['location']}, {state['genres']}, {state['top_artists']}, {state['related_artists']}")
+    state['ticketmaster_concerts'] = output_ticketmaster_concerts
+
+    return None
 
 def _extract_event_info(event: dict) -> dict:
     """Extract relevant event information from Ticketmaster API response."""
@@ -107,8 +128,9 @@ ticketmaster_agent = Agent(
     Your role is to retrieve the concerts for the artists in the user's location.
     
     The location and other data will be in the session state passed to you:
-    - playlist_info contains: top_artists, genres, and location
+    - playlist_info contains: top_artists, genres
     - related_artists contains the list of related artists
+    - location contains the location of the user
     
     **CRITICAL: Genre Mapping**
     You must intelligently map the Spotify genres to one of Ticketmaster's supported genres:
@@ -152,4 +174,5 @@ ticketmaster_agent = Agent(
     """,
     tools=[ticketmaster_api],
     output_key="ticketmaster_concerts",
+    after_agent_callback=after_agent_callback
 )

@@ -2,6 +2,27 @@ from google.adk.agents import Agent
 from google.adk.tools import google_search
 from pydantic import BaseModel, Field
 from typing import List
+from google.adk.agents.callback_context import CallbackContext
+from google.genai import types
+from typing import Optional
+
+def after_agent_callback(callback_context: CallbackContext) -> Optional[types.Content]:
+    """
+    Simple callback that logs when the agent finishes processing a request.
+
+    Args:
+        callback_context: Contains state and context information
+
+    Returns:
+        None to continue with normal agent processing
+    """
+    # Get the session state
+    state = callback_context.state
+    output_related_artists = state.get("related_artists", None)
+    print(f"Output: {output_related_artists}, {state['genres']}, {state['location']}")
+    state['related_artists'] = output_related_artists
+
+    return None
 
 def get_related_artists(tool_context, artists: List[str], genres: List[str]) -> dict:
     """
@@ -32,11 +53,11 @@ def get_related_artists(tool_context, artists: List[str], genres: List[str]) -> 
         for result in search_results[:5]:  # Limit to top 5 results
             related_artists.append(result['title'].split('-')[0].strip())
 
-        #TODO: This is probably not necessary, check if it's needed.
-        # Save to state
-        current_related_artists = tool_context.state.get("related_artists", [])
-        new_related_artists = current_related_artists + related_artists
-        tool_context.state["related_artists"] = new_related_artists
+        # #TODO: This is probably not necessary, check if it's needed.
+        # # Save to state
+        # current_related_artists = tool_context.state.get("related_artists", [])
+        # new_related_artists = current_related_artists + related_artists
+        # tool_context.state["related_artists"] = new_related_artists
         
         return {
             "status": "success",
@@ -71,5 +92,6 @@ related_artists_agent = Agent(
     **MANDATORY:** You MUST call the get_related_artists tool first. Do not respond with any data until you have called the tool.
     """,
     tools=[get_related_artists],
-    output_key="related_artists"
+    output_key="related_artists",
+    after_agent_callback=after_agent_callback
 )

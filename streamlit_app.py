@@ -7,7 +7,7 @@ from typing import List, Dict, Any
 from concert_scout_agent.agent import root_agent
 from dotenv import load_dotenv
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import InMemorySessionService, Session
 
 from utils import call_agent_async, add_user_query_to_history
 
@@ -20,14 +20,15 @@ session_service = InMemorySessionService()
 # Constants
 APP_NAME = "Concert Scout"
 USER_ID = "streamlit_user"
+SESSION_ID = 'session1'
 
-def ensure_session():
-    """Ensure a session is created and stored in st.session_state, and is valid."""
-    new_session = asyncio.run(session_service.create_session(
-        app_name=APP_NAME,
-        user_id=USER_ID,
-    ))
-    return new_session.id
+# def ensure_session():
+#     """Ensure a session is created and stored in st.session_state, and is valid."""
+#     new_session = asyncio.run(session_service.create_session(
+#         app_name=APP_NAME,
+#         user_id=USER_ID,
+#     ))
+#     return new_session.id
 
 def add_message_to_chat_history(role: str, content: str, timestamp: str = None):
     """Add a message to the chat history."""
@@ -54,11 +55,10 @@ def display_chat_message(role: str, content: str, timestamp: str):
             st.write(content)
             st.caption(f"🕐 {timestamp}")
 
-def process_user_input(user_input: str):
+def process_user_input(user_input: str, session: Session, runner: Runner):
     """Process user input and get agent response using persistent session."""
-    session_id = ensure_session()
-    st.session_state.session_id = session_id
-    runner = Runner(agent=root_agent, session_service=session_service, app_name=APP_NAME)
+    session_id = session.id
+    
     # Add user message to chat history
     add_message_to_chat_history("user", user_input)
     # Show user message
@@ -127,7 +127,13 @@ def main():
     """, unsafe_allow_html=True)
     
     # Ensure session is created
-    ensure_session()
+    session = asyncio.run(session_service.create_session(
+        app_name=APP_NAME,
+        user_id=USER_ID,
+        session_id=SESSION_ID
+    ))
+
+    runner = Runner(agent=root_agent, session_service=session_service, app_name=APP_NAME)
     
     # Sidebar
     with st.sidebar:
@@ -186,7 +192,7 @@ def main():
     
     # Chat input
     if prompt := st.chat_input("Share your music taste and location..."):
-        process_user_input(prompt)
+        process_user_input(prompt, session, runner)
 
 if __name__ == "__main__":
     main() 

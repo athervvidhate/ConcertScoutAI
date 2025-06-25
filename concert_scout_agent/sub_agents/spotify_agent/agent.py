@@ -5,6 +5,11 @@ from typing import Dict, List, Tuple
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import os
+from google.adk.agents.callback_context import CallbackContext
+from google.genai import types
+from datetime import datetime
+from typing import Optional
+import json
 
 #FIXME: the current iteration gets the top genres from the top artists. This is not correct. We need to get the genres from the playlist.
 
@@ -14,6 +19,29 @@ CLIENT_SECRET = os.getenv("SPOTIFY_SECRET")
 
 # Constants
 TOP_ARTISTS_LIMIT = 5
+
+def after_agent_callback(callback_context: CallbackContext) -> Optional[types.Content]:
+    """
+    Simple callback that logs when the agent finishes processing a request.
+
+    Args:
+        callback_context: Contains state and context information
+
+    Returns:
+        None to continue with normal agent processing
+    """
+    # Get the session state
+    state = callback_context.state
+
+    output_playlist_info = state.get("playlist_info", None)
+    dict_output = json.loads(output_playlist_info.strip('```json\n').strip('\n```'))
+    
+    print(f"Output: {dict_output}")
+    state['top_artists'] = dict_output['top_artists']
+    state['genres'] = dict_output['genres']
+    state['location'] = dict_output['location']
+
+    return None
 
 class SpotifyError(Exception):
     """Custom exception for Spotify API errors"""
@@ -181,4 +209,5 @@ spotify_agent = Agent(
     """,
     tools=[spotify_api],
     output_key="playlist_info",
+    after_agent_callback=after_agent_callback
 )
