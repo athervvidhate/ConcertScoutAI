@@ -24,11 +24,13 @@ final_recommender_agent = Agent(
     Tailor your responses based on the user's information and the information you have retrieved from the Spotify Agent and the Ticketmaster Agent.
     Always maintain a helpful and professional tone.
 
-    Playlist Info (has the top artists and genres):
-    {playlist_info}
+    Location: {location}
+    
+    Top Artists: {top_artists}
 
-    Related Artists (has the related artists):
-    {related_artists}
+    Genres: {genres}
+
+    Related Artists: {related_artists}
 
     Ticketmaster Concerts (has the concerts for the artists, genre, and related artists):
     {ticketmaster_concerts}

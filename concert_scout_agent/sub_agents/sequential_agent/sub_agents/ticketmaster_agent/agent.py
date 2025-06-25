@@ -5,6 +5,7 @@ import requests
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types
 from typing import Optional
+from google.adk.tools import ToolContext
 
 TM_KEY = os.getenv("TM_KEY")
 
@@ -66,7 +67,7 @@ def _fetch_concerts(query_string: str, limit: int = None) -> List[dict]:
         print(f"Error fetching concerts: {e}")
         return []
 
-def ticketmaster_api(artists: List[str], latlong: List[str], related_artists: List[str], ticketmaster_genre: str) -> Dict:
+def ticketmaster_api(tool_context: ToolContext, artists: List[str], latlong: List[str], related_artists: List[str], ticketmaster_genre: str) -> Dict:
     """
     Retrieve concerts for artists in a given location using the Ticketmaster API.
 
@@ -101,7 +102,17 @@ def ticketmaster_api(artists: List[str], latlong: List[str], related_artists: Li
             related_concerts = _fetch_concerts(query_string_related, limit=5)
             concerts_related.extend(related_concerts)
 
-        # TODO: if none of the results are to the user's liking ask them for a date range to help refine the search
+        #Save to state
+        #TODO: might need to change the new ticketmaster_concerts to a list of dicts with the following format:
+        # {
+        #     "artist": artist,
+        #     "genre": genre,
+        #     "related_artist": related_artist,
+        #     "concerts": concerts
+        # }
+        current_ticketmaster_concerts = tool_context.state.get("ticketmaster_concerts", [])
+        new_ticketmaster_concerts = current_ticketmaster_concerts + concerts_artists + concerts_genre + concerts_related
+        tool_context.state["ticketmaster_concerts"] = new_ticketmaster_concerts
 
         return {
             "status": "success",
@@ -124,53 +135,47 @@ ticketmaster_agent = Agent(
     model="gemini-2.0-flash",
     description="Ticketmaster retrieval agent for the Concert Scout AI",
     instruction="""
-    You are a Ticketmaster retrieval agent for the Concert Scout AI.
-    Your role is to retrieve the concerts for the artists in the user's location.
+    You are the Ticketmaster Retrieval Agent for the Concert Scout AI. Your sole responsibility is to process user data and retrieve concert information via the ticketmaster_api tool.
+
+1. Data Ingestion
+You will receive the following data from the session state:
+    playlist_info: A dictionary containing:
+        top_artists: A list of strings.
+        genres: A list of Spotify genre strings.
+    related_artists: A list of strings.
+    location: A string detailing the user's location.
+
+2. Core Logic
+Your execution must follow these sequential steps:
+    Step A: Genre Translation
+        Intelligently map the provided genres to the most appropriate Ticketmaster genre.
+        Ticketmaster Genre Categories: Alternative, Ballads/Romantic, Blues, Children's Music, Classical, Country, Dance/Electronic, Folk, Hip-Hop/Rap, Holiday, Jazz, Latin, Medieval/Renaissance, Metal, New Age, Other, Pop, R&B, Reggae, Religious, Rock, World.
     
-    The location and other data will be in the session state passed to you:
-    - playlist_info contains: top_artists, genres
-    - related_artists contains the list of related artists
-    - location contains the location of the user
-    
-    **CRITICAL: Genre Mapping**
-    You must intelligently map the Spotify genres to one of Ticketmaster's supported genres:
-    Alternative, Ballads/Romantic, Blues, Children's Music, Classical, Country, Dance/Electronic, 
-    Folk, Hip-Hop/Rap, Holiday, Jazz, Latin, Medieval/Renaissance, Metal, New Age, Other, 
-    Pop, R&B, Reggae, Religious, Rock, World
-    
-    If the genres don't clearly match any category, use your best judgment.
-    
-    **CRITICAL: Location to Coordinates**
-    You must convert the location name to approximate latitude and longitude coordinates.
-    Use your knowledge of geography to estimate coordinates for common cities and locations.
-    Examples:
-    - "los angeles" → ["34.0522", "-118.2437"]
-    - "new york" → ["40.7128", "-74.0060"]
-    - "chicago" → ["41.8781", "-87.6298"]
-    - "miami" → ["25.7617", "-80.1918"]
-    - "seattle" → ["47.6062", "-122.3321"]
-    
-    **MANDATORY: You MUST call the ticketmaster_api tool**
-    You are REQUIRED to use the ticketmaster_api tool to search for concerts. The tool will handle:
-    1. Searching for concerts by artists, genres, and related artists using the coordinates
-    
-    **STEPS TO FOLLOW:**
-    1. Extract the top_artists, location, and genres from playlist_info in the session state
-    2. Extract the related_artists from the session state
-    3. Map the Spotify genres to the appropriate Ticketmaster genre category
-    4. Convert the location name to approximate latitude and longitude coordinates
-    5. Call the ticketmaster_api tool with the extracted data and coordinates
-    6. Return the results from the tool call directly
-    
-    **DO NOT** return JSON as a string. Instead, call the ticketmaster_api tool and return its results.
-    The tool will return the proper structure with concerts_artists, concerts_genre, and concerts_related.
-    
-    Example of what you should do:
-    - Extract: top_artists=["Taylor Swift"], location="los angeles", genres=["pop"], related_artists=["Ed Sheeran"]
-    - Map: genres=["pop"] → ticketmaster_genre="Pop"
-    - Convert: location="los angeles" → latlong=["34.0522", "-118.2437"]
-    - Call: ticketmaster_api(artists=["Taylor Swift"], latlong=["34.0522", "-118.2437"], related_artists=["Ed Sheeran"], ticketmaster_genre="Pop")
-    - Return: The result from the tool call
+    Step B: Geographic Coordinate Conversion
+        Convert the user's location string to its approximate latitude and longitude coordinates.
+        Example Conversions:
+            "los angeles" → ["34.0522", "-118.2437"]
+            "new york" → ["40.7128", "-74.0060"]
+
+    Step C: Mandatory API Call
+        You are required to call the ticketmaster_api tool.
+        The tool call must include:
+            The user's top_artists.
+            The mapped Ticketmaster genre.
+            The related_artists.
+            The converted latitude and longitude.
+
+3. Output Specification
+    Return only the direct JSON response from the ticketmaster_api tool.
+    The expected format of the tool's response is:
+    JSON
+    {
+        "status": "success",
+        "concerts_artists": [],
+        "concerts_genre": [],
+        "concerts_related": []
+    }
+
     """,
     tools=[ticketmaster_api],
     output_key="ticketmaster_concerts",

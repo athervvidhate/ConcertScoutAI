@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService, Session
 
-from utils import call_agent_async, add_user_query_to_history
+from utils import call_agent_async
 
 # Load environment variables
 load_dotenv()
@@ -22,13 +22,15 @@ APP_NAME = "Concert Scout"
 USER_ID = "streamlit_user"
 SESSION_ID = 'session1'
 
-# def ensure_session():
-#     """Ensure a session is created and stored in st.session_state, and is valid."""
-#     new_session = asyncio.run(session_service.create_session(
-#         app_name=APP_NAME,
-#         user_id=USER_ID,
-#     ))
-#     return new_session.id
+initial_state = {
+    "user_name": USER_ID,
+    "location": "",
+    "genres": [],
+    "top_artists": [],
+    "related_artists": [],
+    "concerts": [],
+    "ticketmaster_concerts": [],
+}
 
 def add_message_to_chat_history(role: str, content: str, timestamp: str = None):
     """Add a message to the chat history."""
@@ -130,7 +132,8 @@ def main():
     session = asyncio.run(session_service.create_session(
         app_name=APP_NAME,
         user_id=USER_ID,
-        session_id=SESSION_ID
+        session_id=SESSION_ID,
+        state=initial_state 
     ))
 
     runner = Runner(agent=root_agent, session_service=session_service, app_name=APP_NAME)

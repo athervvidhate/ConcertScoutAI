@@ -7,7 +7,6 @@ from spotipy.oauth2 import SpotifyClientCredentials
 import os
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types
-from datetime import datetime
 from typing import Optional
 import json
 
@@ -37,8 +36,8 @@ def after_agent_callback(callback_context: CallbackContext) -> Optional[types.Co
     dict_output = json.loads(output_playlist_info.strip('```json\n').strip('\n```'))
     
     print(f"Output: {dict_output}")
-    state['top_artists'] = dict_output['top_artists']
-    state['genres'] = dict_output['genres']
+    # state['top_artists'] = dict_output['top_artists']
+    # state['genres'] = dict_output['genres']
     state['location'] = dict_output['location']
 
     return None
@@ -108,14 +107,14 @@ def _get_artist_genres(sp: spotipy.Spotify, artist_ids: List[str]) -> List[str]:
     except Exception as e:
         raise SpotifyError(f"Failed to fetch artist genres: {str(e)}")
 
-def spotify_api(tool_context: ToolContext, playlist_id: str) -> Dict:
+def spotify_api(tool_context: ToolContext, playlist_id: str, location: str) -> Dict:
     """
     Retrieve the user's Spotify playlist, get the top artists in the playlist, and get the genres of the artists.
     
     Args:
         tool_context: The tool context
         playlist_id: Spotify playlist ID, URI, or URL (e.g., "37i9dQZF1DXcBWIGoYBM5M" or "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
-        
+        location: The location of the user
     Returns:
         Dict containing status, top artists, and genres
     """
@@ -142,7 +141,6 @@ def spotify_api(tool_context: ToolContext, playlist_id: str) -> Dict:
         # Get genres for top artists
         genres = _get_artist_genres(sp, top_artist_ids)
 
-        #TODO: This is probably not necessary, check if it's needed.
         # Saves the top artists and genres to the state
         current_top_artists = tool_context.state.get("top_artists", [])
         current_genres = tool_context.state.get("genres", [])
@@ -153,6 +151,7 @@ def spotify_api(tool_context: ToolContext, playlist_id: str) -> Dict:
         # Update the state
         tool_context.state["top_artists"] = new_top_artists
         tool_context.state["genres"] = new_genres
+        tool_context.state["location"] = location
         
         return {
             "status": "success",
