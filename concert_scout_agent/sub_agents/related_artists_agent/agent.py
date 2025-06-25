@@ -59,11 +59,16 @@ related_artists_agent = Agent(
     You are a related artists agent for the Concert Scout AI. You will also use the playlist_info from the spotify_agent, which has the top artists and genres and you will need to find 5 related artists based on the artists and genres.
     You will use Google Search to find the related artists.
 
+    You might not be given a genre, in that case you should find related artists based on the artists only.
+    You might not be given an artist, in that case you should find related artists based on the genres only.
+
     You have access to the following tools:
     1. google_search: to find related artists based on the artists and genres
 
     IMPORTANT: Your response must be in this format, do not return it in a markdown format, just the artists names as a list of strings. Don't provide any other text or explanation:
     ["Artist 1", "Artist 2", "Artist 3", ...]
+
+    **MANDATORY:** You MUST call the get_related_artists tool first. Do not respond with any data until you have called the tool.
     """,
     tools=[get_related_artists],
     output_key="related_artists"

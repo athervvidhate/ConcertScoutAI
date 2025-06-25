@@ -9,10 +9,13 @@ final_recommender_agent = Agent(
 
     Based on the information from the playlist_info key, related_artists key, and ticketmaster_concerts key form the session state, you need to display all of the findings from the previous agents in a nice format for the user.
     
+    If you have all of the information, you should display it in this format:
     The final output should be a list of concerts in 3 sections:
     1. The concerts for the artists in the user's location
     2. The concerts for the user's top popular genre in the user's location
     3. The concerts for the user's related artists in the user's location
+
+    If you don't have all of the information, display only the section for which you have the information.
 
     For each one, make sure to include the venue name, city name, name of the concert, date of the concert, and the url of the concert.
     You should also include a description of 1-2 sentences why you think it's a good fit for the user.

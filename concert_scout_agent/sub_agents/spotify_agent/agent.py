@@ -159,6 +159,8 @@ spotify_agent = Agent(
 
     **CRITICAL INSTRUCTIONS:**
     1. You MUST ALWAYS use the spotify_api tool when given a playlist URL or ID
+        1a. If you are just given artist names, don't use the tool, and just return the artist names and location. Let genres be empty.
+        1b. If you are just given a genre, don't use the tool, and just return the genre and location. Let top_artists be empty.
     2. Extract the playlist ID from URLs like "https://open.spotify.com/playlist/5KofGihC7bs0WQ416UDBub?si=97ef973ba94d4bb9" - use only the ID part: "5KofGihC7bs0WQ416UDBub"
     3. Call the spotify_api tool with the playlist ID
     4. NEVER make up or hallucinate data - you must use the tool to get real data
