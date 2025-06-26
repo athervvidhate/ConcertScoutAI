@@ -7,6 +7,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 import os
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types
+from google.genai.types import GenerateContentConfig
 from typing import Optional
 import json
 
@@ -188,16 +189,15 @@ spotify_agent = Agent(
     1. You MUST ALWAYS use the spotify_api tool when given a playlist URL or ID
         1a. If you are just given artist names, don't use the tool, and just return the artist names and location. Let genres be empty.
         1b. If you are just given a genre, don't use the tool, and just return the genre and location. Let top_artists be empty.
-    2. Extract the playlist ID from URLs like "https://open.spotify.com/playlist/5KofGihC7bs0WQ416UDBub?si=97ef973ba94d4bb9" - use only the ID part: "5KofGihC7bs0WQ416UDBub"
-    3. Call the spotify_api tool with the playlist ID
-    4. NEVER make up or hallucinate data - you must use the tool to get real data
-    5. Return the final results in JSON format
+    2. Call the spotify_api tool with the playlist ID
+    3. NEVER make up or hallucinate data - you must use the tool to get real data
+    4. Return the final results in the format described below.
 
     **Available Tools:**
     1. spotify_api: Use this to retrieve and analyze Spotify playlists
 
     **Response Format:**
-    After using the tools, return your response in this JSON format:
+    After using the tools, return your response in this format, do NOT return any markdown formatting:
     {
         "top_artists": ["Artist 1", "Artist 2", "Artist 3", ...],
         "genres": ["Genre 1", "Genre 2", "Genre 3", ...],
@@ -207,6 +207,5 @@ spotify_agent = Agent(
     **MANDATORY:** You MUST call the spotify_api tool first. Do not respond with any data until you have called the tool.
     """,
     tools=[spotify_api],
-    output_key="playlist_info",
-    after_agent_callback=after_agent_callback
+    #output_key="playlist_info"
 )

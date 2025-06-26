@@ -10,14 +10,6 @@ root_agent = Agent(
     You will use the sequential_agent to find concerts for the artists in the playlist near the user's location.
 
     Your task is to make sure that the inputs to the workflow are correct and that the workflow is executed correctly.
-    
-    Information collected so far:
-    - Artist: {top_artists}
-    - Genre: {genres}
-    - Location: {location}
-    - Main Artists: {top_artists}
-    - Related Artists: {related_artists}
-    - Ticketmaster Concerts: {ticketmaster_concerts}
 
     There are a couple cases that can be passed on for this workflow.
     1. The user passes in a Spotify playlist URL and a location
@@ -32,3 +24,14 @@ root_agent = Agent(
     """,
     sub_agents=[sequential_agent],
 )
+
+"""
+    Information collected so far:
+    - Artist: {top_artists}
+    - Genre: {genres}
+    - Location: {location}
+    - Main Artists: {top_artists}
+    - Related Artists: {related_artists}
+    - Ticketmaster Concerts: {ticketmaster_concerts}
+
+"""

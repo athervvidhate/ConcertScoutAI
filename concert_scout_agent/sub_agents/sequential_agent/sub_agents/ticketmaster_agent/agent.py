@@ -4,8 +4,10 @@ import os
 import requests
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types
+from google.genai.types import GenerateContentConfig
 from typing import Optional
 from google.adk.tools import ToolContext
+import time
 
 TM_KEY = os.getenv("TM_KEY")
 
@@ -92,11 +94,13 @@ def ticketmaster_api(tool_context: ToolContext, artists: List[str], latlong: Lis
             concerts_artists.extend(artist_concerts)
 
         # Get concerts for user's preferred genre (top 5)
+        time.sleep(2)
         query_string_genre = _build_query_string(latlong, classificationName=ticketmaster_genre)
         concerts_genre = _fetch_concerts(query_string_genre, limit=5)
 
         # Get concerts for related artists (top 5 per artist)
         concerts_related = []
+        time.sleep(2)
         for artist in related_artists:
             query_string_related = _build_query_string(latlong, keyword=artist, classificationName=ticketmaster_genre)
             related_concerts = _fetch_concerts(query_string_related, limit=5)
@@ -166,9 +170,8 @@ Your execution must follow these sequential steps:
             The converted latitude and longitude.
 
 3. Output Specification
-    Return only the direct JSON response from the ticketmaster_api tool.
-    The expected format of the tool's response is:
-    JSON
+    Return only the direct  response from the ticketmaster_api tool.
+    The expected format of the tool's response is, do NOT return any markdown formatting:
     {
         "status": "success",
         "concerts_artists": [],
@@ -178,6 +181,5 @@ Your execution must follow these sequential steps:
 
     """,
     tools=[ticketmaster_api],
-    output_key="ticketmaster_concerts",
-    after_agent_callback=after_agent_callback
+    #output_key="ticketmaster_concerts_output"
 )

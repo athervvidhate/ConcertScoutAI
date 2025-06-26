@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 
-from utils import call_agent_async, add_user_query_to_history
+from utils import call_agent_async
 
 load_dotenv()
 
@@ -32,7 +32,6 @@ async def main_async():
             print("Ending conversation. Goodbye!")
             break
 
-        await add_user_query_to_history(session_service, APP_NAME, USER_ID, SESSION_ID, user_input)
         await call_agent_async(runner, USER_ID, SESSION_ID, user_input)
 
 
