@@ -1,0 +1,19 @@
+{
+  "name": "concert-scout",
+  "version": "1.0.0",
+  "description": "Concert Scout AI - Find live music events tailored to your taste",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd api && python run_fastapi.py",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd frontend && npm start",
+    "install:all": "npm install && cd frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": ["concert", "music", "ai", "fastapi", "nextjs"],
+  "author": "",
+  "license": "MIT"
+} 

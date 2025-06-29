@@ -1,0 +1,211 @@
+"use client"
+
+import type React from "react"
+import type { HTMLTextAreaElement } from "react"
+
+import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Loader2, Send, MessageCircle, X } from "lucide-react"
+import { apiService } from "@/lib/api"
+import { parseAiResponse } from "@/lib/parseAiResponse"
+import { AiChatBubble } from "@/components/ai-chat-bubble"
+
+export function SearchPrompt() {
+  const [prompt, setPrompt] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [followUpMessage, setFollowUpMessage] = useState<string | null>(null)
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined)
+  const [isFocused, setIsFocused] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const router = useRouter()
+
+  const handleSubmit = async () => {
+    if (!prompt.trim() || isLoading) return
+
+    setIsLoading(true)
+    setFollowUpMessage(null) // Clear any previous follow-up
+
+    try {
+      // Send the message to the API (use existing session if we have one)
+      const response = await apiService.chat({
+        message: prompt,
+        user_id: "default_user",
+        session_id: sessionId
+      })
+
+      // Update session ID for follow-up conversations
+      setSessionId(response.session_id)
+
+      // Parse the response to check if it's a follow-up question
+      const parsedData = parseAiResponse(response.response)
+
+      if (parsedData.isFollowUpQuestion && parsedData.followUpMessage) {
+        // Show follow-up question inline
+        setFollowUpMessage(parsedData.followUpMessage)
+        setPrompt("") // Clear the input for the user's response
+      } else {
+        // Store response in sessionStorage and navigate to results
+        const responseData = {
+          query: prompt,
+          response: response.response,
+          session_id: response.session_id,
+          timestamp: Date.now()
+        }
+        
+        sessionStorage.setItem('concert_search_results', JSON.stringify(responseData))
+        
+        // Navigate to results with minimal URL params
+        const queryParams = new URLSearchParams({
+          q: prompt,
+          session_id: response.session_id
+        })
+        
+        router.push(`/results?${queryParams.toString()}`)
+      }
+    } catch (error: any) {
+      console.error("Error sending message:", error)
+      
+      let errorMessage = "Sorry, there was an error processing your request. Please try again.";
+      let errorType = "general";
+      
+      // Check if it's a quota exceeded error
+      if (error.apiError?.isQuotaExceeded) {
+        errorMessage = "API quota limit reached. Please try again later (quota resets daily).";
+        errorType = "quota_exceeded";
+      } else if (error.apiError?.isServerError) {
+        errorMessage = "Server error occurred. Please try again in a few moments.";
+        errorType = "server_error";
+      }
+      
+      // Store error response in sessionStorage
+      const errorData = {
+        query: prompt,
+        response: errorMessage,
+        session_id: "",
+        timestamp: Date.now(),
+        error: true,
+        errorType: errorType
+      }
+      
+      sessionStorage.setItem('concert_search_results', JSON.stringify(errorData))
+      
+      // Navigate to results page
+      const queryParams = new URLSearchParams({
+        q: prompt
+      })
+      router.push(`/results?${queryParams.toString()}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDismissFollowUp = () => {
+    setFollowUpMessage(null)
+    setSessionId(undefined) // Reset session for fresh start
+    setPrompt("")
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit()
+    }
+  }
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      // Reset height to allow shrinking
+      textareaRef.current.style.height = "auto"
+      // Only set height if content needs more space than min-height
+      const minHeight = 48 // Match min-h-[48px]
+      const scrollHeight = textareaRef.current.scrollHeight
+      textareaRef.current.style.height = `${Math.max(minHeight, scrollHeight)}px`
+    }
+  }, [prompt])
+
+  return (
+    <div className="w-full max-w-4xl space-y-4">
+      <div className="relative">
+        {/* Subtle rainbow glow wrapper */}
+        <div 
+          className={`relative rounded-lg transition-all duration-300 ${
+            isFocused 
+              ? 'shadow-[0_0_20px_rgba(168,85,247,0.4),0_0_40px_rgba(236,72,153,0.2),0_0_60px_rgba(59,130,246,0.1)]' 
+              : isHovered
+              ? 'shadow-[0_0_15px_rgba(168,85,247,0.3),0_0_30px_rgba(236,72,153,0.15)]'
+              : 'shadow-none'
+          }`}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <textarea
+            ref={textareaRef}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder={
+              followUpMessage 
+                ? "Please provide the additional information requested above..."
+                : "Tell me about your music taste and where you want to find concerts..."
+            }
+            className={`w-full min-h-[48px] max-h-[300px] p-3 pr-12 text-white bg-gray-800/50 border rounded-lg resize-none focus:outline-none placeholder-gray-400 transition-all duration-300 ${
+              isFocused 
+                ? 'border-purple-400/50 bg-gray-800/70' 
+                : isHovered
+                ? 'border-purple-500/30 bg-gray-800/60'
+                : 'border-gray-700 bg-gray-800/50'
+            }`}
+            disabled={isLoading}
+          />
+          <Button
+            onClick={handleSubmit}
+            disabled={!prompt.trim() || isLoading}
+            className="absolute top-3 right-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md p-1.5 h-8 w-8 z-20"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Follow-up Question Display */}
+      {followUpMessage && (
+        <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-purple-500/20 rounded-lg">
+                <MessageCircle className="h-4 w-4 text-purple-400" />
+              </div>
+              <span className="text-sm font-medium text-purple-400">Concert Scout AI needs more info:</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDismissFollowUp}
+              className="text-gray-400 hover:text-white h-6 w-6 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <AiChatBubble
+            title="Concert Scout AI"
+            message={followUpMessage}
+          />
+          
+          <p className="text-xs text-gray-500">
+            Please provide the requested information in the search box above and press Enter to continue.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
