@@ -3,6 +3,7 @@ from datetime import datetime
 from datetime import timedelta
 from typing import cast, Dict, List, Optional
 import os
+import logging
 from uuid import uuid4
 
 from concert_scout_agent.agent import root_agent
@@ -14,7 +15,11 @@ from google.adk.runners import InMemoryRunner
 from google.adk.sessions import Session
 from google.genai import types
 
-# Get the directory where main2_fastapi.py is located
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Get the directory where app.py is located
 current_dir = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(current_dir, '.env')
 load_dotenv(env_path)
@@ -29,7 +34,18 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly for production
+    allow_origins=[
+        "http://localhost:3000",  # Development
+        "https://localhost:3000",  # Development with HTTPS
+        "https://*.onrender.com",  # Render domains
+        "https://*.vercel.app",    # Vercel domains
+        os.getenv("FRONTEND_URL", ""),  # Custom frontend URL
+    ] if os.getenv("FRONTEND_URL") else [
+        "http://localhost:3000",
+        "https://localhost:3000", 
+        "https://*.onrender.com",
+        "https://*.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,6 +60,22 @@ runner = InMemoryRunner(
 
 # In-memory session storage (use a proper database in production)
 sessions: Dict[str, Session] = {}
+
+@app.on_event("startup")
+async def startup_event():
+    """Log startup information and check environment variables."""
+    logger.info("Concert Scout AI API starting up...")
+    
+    # Check required environment variables
+    required_vars = ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "TICKETMASTER_API_KEY", "GOOGLE_API_KEY"]
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    
+    if missing_vars:
+        logger.warning(f"Missing environment variables: {missing_vars}")
+    else:
+        logger.info("All required environment variables are set")
+    
+    logger.info("Concert Scout AI API startup complete")
 
 # Pydantic models for request/response
 class ChatRequest(BaseModel):
@@ -114,17 +146,20 @@ async def run_prompt(session: Session, new_message: str, user_id: str) -> tuple[
 async def chat(request: ChatRequest):
     """Send a message to the Concert Scout AI agent."""
     try:
+        logger.info(f"Received chat request from user: {request.user_id}")
         user_id = request.user_id
         
         # Get or create session
         if request.session_id and request.session_id in sessions:
             session = sessions[request.session_id]
+            logger.info(f"Using existing session: {request.session_id}")
         else:
             session = await runner.session_service.create_session(
                 app_name=app_name,
                 user_id=user_id,
             )
             sessions[session.id] = session
+            logger.info(f"Created new session: {session.id}")
         
         # Run the prompt
         updated_session, events = await run_prompt(session, request.message, user_id)
@@ -136,6 +171,7 @@ async def chat(request: ChatRequest):
             if event.get("type") == "text" and event.get("author") != "user":
                 text_response += event.get("content", "")
         
+        logger.info(f"Chat request completed successfully for session: {session.id}")
         return ChatResponse(
             response=text_response,
             session_id=session.id,
@@ -144,6 +180,7 @@ async def chat(request: ChatRequest):
         )
     
     except Exception as e:
+        logger.error(f"Error processing chat request: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
 
 @app.post("/sessions", response_model=SessionResponse)
@@ -190,7 +227,33 @@ async def delete_session(session_id: str):
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "Concert Scout AI API"}
+    try:
+        # Check if required environment variables are set
+        env_status = {
+            "SPOTIFY_CLIENT_ID": bool(os.getenv("SPOTIFY_CLIENT_ID")),
+            "SPOTIFY_CLIENT_SECRET": bool(os.getenv("SPOTIFY_CLIENT_SECRET")),
+            "TICKETMASTER_API_KEY": bool(os.getenv("TICKETMASTER_API_KEY")),
+            "GOOGLE_API_KEY": bool(os.getenv("GOOGLE_API_KEY")),
+        }
+        
+        return {
+            "status": "healthy",
+            "service": "Concert Scout AI API",
+            "timestamp": datetime.now().isoformat(),
+            "environment": {
+                "python_version": os.getenv("PYTHON_VERSION", "unknown"),
+                "port": os.getenv("PORT", "8000"),
+            },
+            "env_vars_status": env_status,
+            "active_sessions": len(sessions)
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 @app.get("/")
 async def root():
