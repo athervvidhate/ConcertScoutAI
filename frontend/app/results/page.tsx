@@ -21,7 +21,7 @@ export default function ResultsPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Get query from URL as fallback
+    // Get query from URL as a fallback
     const queryFromUrl = searchParams.get("q") || ""
     const sessionIdFromUrl = searchParams.get("session_id") || ""
 
