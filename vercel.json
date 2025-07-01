@@ -1,0 +1,8 @@
+{
+    "rewrites": [
+      {
+        "source": "/api/:path*",
+        "destination": "/api/concert_scout_agent"
+      }
+    ]
+  }
