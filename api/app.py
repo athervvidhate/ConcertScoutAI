@@ -39,12 +39,14 @@ app.add_middleware(
         "https://localhost:3000",  # Development with HTTPS
         "https://*.onrender.com",  # Render domains
         "https://*.vercel.app",    # Vercel domains
+        "https://*.railway.app",   # Railway domains
         os.getenv("FRONTEND_URL", ""),  # Custom frontend URL
     ] if os.getenv("FRONTEND_URL") else [
         "http://localhost:3000",
         "https://localhost:3000", 
         "https://*.onrender.com",
         "https://*.vercel.app",
+        "https://*.railway.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
