@@ -5,8 +5,8 @@
         "destination": "/api/concert_scout_agent"
       }
     ],
-    "buildCommand": "npm run build",
+    "buildCommand": "cd frontend && npm run build",
     "outputDirectory": "frontend/.next",
     "framework": "nextjs",
-    "installCommand": "npm run install:all"
+    "installCommand": "cd frontend && npm install"
   }
