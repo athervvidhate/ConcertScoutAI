@@ -15,6 +15,7 @@ export function SearchPrompt() {
   const [prompt, setPrompt] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [followUpMessage, setFollowUpMessage] = useState<string | null>(null)
+  const [originalQuery, setOriginalQuery] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | undefined>(undefined)
   const [isFocused, setIsFocused] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
@@ -25,30 +26,35 @@ export function SearchPrompt() {
     if (!prompt.trim() || isLoading) return
 
     setIsLoading(true)
-    setFollowUpMessage(null) // Clear any previous follow-up
+    setFollowUpMessage(null)
 
     try {
-      // Send the message to the API (use existing session if we have one)
+      let messageToSend = prompt;
+      if (originalQuery) {
+        // This is a follow-up response, concatenate with original query
+        messageToSend = `${originalQuery} ${prompt}`;
+        console.log('Concatenating messages:', { original: originalQuery, followUp: prompt, combined: messageToSend });
+      }
+
       const response = await apiService.chat({
-        message: prompt,
+        message: messageToSend,
         user_id: "default_user",
         session_id: sessionId
       })
 
-      // Update session ID for follow-up conversations
       setSessionId(response.session_id)
 
-      // Parse the response to check if it's a follow-up question
       const parsedData = parseAiResponse(response.response)
 
       if (parsedData.isFollowUpQuestion && parsedData.followUpMessage) {
-        // Show follow-up question inline
+        if (!originalQuery) {
+          setOriginalQuery(prompt);
+        }
         setFollowUpMessage(parsedData.followUpMessage)
-        setPrompt("") // Clear the input for the user's response
+        setPrompt("")
       } else {
-        // Store response in sessionStorage and navigate to results
         const responseData = {
-          query: prompt,
+          query: messageToSend,
           response: response.response,
           session_id: response.session_id,
           timestamp: Date.now()
@@ -56,13 +62,15 @@ export function SearchPrompt() {
         
         sessionStorage.setItem('concert_search_results', JSON.stringify(responseData))
         
-        // Navigate to results with minimal URL params
         const queryParams = new URLSearchParams({
-          q: prompt,
+          q: messageToSend,
           session_id: response.session_id
         })
         
         router.push(`/results?${queryParams.toString()}`)
+        
+        setOriginalQuery(null)
+        setFollowUpMessage(null)
       }
     } catch (error: any) {
       console.error("Error sending message:", error)
@@ -70,7 +78,6 @@ export function SearchPrompt() {
       let errorMessage = "Sorry, there was an error processing your request. Please try again.";
       let errorType = "general";
       
-      // Check if it's a quota exceeded error
       if (error.apiError?.isQuotaExceeded) {
         errorMessage = "API quota limit reached. Please try again later (quota resets daily).";
         errorType = "quota_exceeded";
@@ -79,7 +86,6 @@ export function SearchPrompt() {
         errorType = "server_error";
       }
       
-      // Store error response in sessionStorage
       const errorData = {
         query: prompt,
         response: errorMessage,
@@ -91,7 +97,6 @@ export function SearchPrompt() {
       
       sessionStorage.setItem('concert_search_results', JSON.stringify(errorData))
       
-      // Navigate to results page
       const queryParams = new URLSearchParams({
         q: prompt
       })
@@ -103,7 +108,8 @@ export function SearchPrompt() {
 
   const handleDismissFollowUp = () => {
     setFollowUpMessage(null)
-    setSessionId(undefined) // Reset session for fresh start
+    setOriginalQuery(null)
+    setSessionId(undefined)
     setPrompt("")
   }
 
@@ -114,13 +120,10 @@ export function SearchPrompt() {
     }
   }
 
-  // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
-      // Reset height to allow shrinking
       textareaRef.current.style.height = "auto"
-      // Only set height if content needs more space than min-height
-      const minHeight = 48 // Match min-h-[48px]
+      const minHeight = 48
       const scrollHeight = textareaRef.current.scrollHeight
       textareaRef.current.style.height = `${Math.max(minHeight, scrollHeight)}px`
     }
@@ -129,7 +132,6 @@ export function SearchPrompt() {
   return (
     <div className="w-full max-w-4xl space-y-4">
       <div className="relative">
-        {/* Subtle rainbow glow wrapper */}
         <div 
           className={`relative rounded-lg transition-all duration-300 ${
             isFocused 
@@ -176,7 +178,6 @@ export function SearchPrompt() {
         </div>
       </div>
 
-      {/* Follow-up Question Display */}
       {followUpMessage && (
         <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
           <div className="flex items-start justify-between">

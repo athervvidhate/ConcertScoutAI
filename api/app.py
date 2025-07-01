@@ -82,20 +82,24 @@ async def run_prompt(session: Session, new_message: str, user_id: str) -> tuple[
             "timestamp": datetime.now().isoformat()
         }
         
-        # If we are seeing to much text from the agent, we should change this to include event.is_final_response() and show only that part to the user.
         if event.content.parts[0].text:
-            event_data["type"] = "text"
-            event_data["content"] = event.content.parts[0].text
-        elif event.content.parts[0].function_call:
-            event_data["type"] = "function_call"
-            event_data["function_name"] = event.content.parts[0].function_call.name
-            event_data["function_args"] = event.content.parts[0].function_call.args
-        elif event.content.parts[0].function_response:
-            event_data["type"] = "function_response"
-            event_data["function_name"] = event.content.parts[0].function_response.name
-            event_data["response"] = event.content.parts[0].function_response.response
+            if event.is_final_response():
+                event_data["type"] = "text"
+                event_data["content"] = event.content.parts[0].text
+                print(event.author)
+                if event.author == "final_recommender_agent" or event.author == "concert_scout_agent": #Only add follow up questions and final responses
+                    events.append(event_data)
+
+        # Endpoint doesn't need to know about function calls or responses, only the final text.
+        # elif event.content.parts[0].function_call:
+        #     event_data["type"] = "function_call"
+        #     event_data["function_name"] = event.content.parts[0].function_call.name
+        #     event_data["function_args"] = event.content.parts[0].function_call.args
+        # elif event.content.parts[0].function_response:
+        #     event_data["type"] = "function_response"
+        #     event_data["function_name"] = event.content.parts[0].function_response.name
+        #     event_data["response"] = event.content.parts[0].function_response.response
         
-        events.append(event_data)
 
     updated_session = cast(
         Session,

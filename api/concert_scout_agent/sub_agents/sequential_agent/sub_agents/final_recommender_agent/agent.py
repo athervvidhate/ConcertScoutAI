@@ -1,4 +1,5 @@
 from google.adk.agents import Agent
+from google.genai import types
 
 final_recommender_agent = Agent(
     name="final_recommender_agent",
@@ -19,6 +20,7 @@ final_recommender_agent = Agent(
 
     For each one, make sure to include the venue name, city name, name of the concert, date of the concert, and the url of the concert.
     You should also include a description of 1-2 sentences why you think it's a good fit for the user.
+    DO NOT RETURN THE JSON IN MARKDOWN FORMAT. ONLY RETURN THE JSON ARRAYS AND DICTIONARIES THEMSELVES.
     
     Tailor your responses based on the user's information and the information you have retrieved from the Spotify Agent and the Ticketmaster Agent.
     Always maintain a helpful and professional tone.
@@ -55,7 +57,7 @@ final_recommender_agent = Agent(
     **Example Output:**
     Okay, I have some concert recommendations for you in London based on your Spotify playlist!
 
-    Concerts for Your Top Artists
+    Concerts for Your Top Artists:
     [
         {
             "name": "Dom Dolla",
@@ -86,7 +88,7 @@ final_recommender_agent = Agent(
         }
     ]
 
-    Concerts for Your Top Genre (Dance/Electronic)
+    Concerts for Your Top Genre (Dance/Electronic):
     [
         {
             "name": "Étienne De Crécy",
@@ -120,5 +122,8 @@ final_recommender_agent = Agent(
     Concerts for Related Artists
 
     Unfortunately, there are no concerts for related artists in London at this time.
-    """
+    """,
+    generate_content_config=types.GenerateContentConfig(
+        temperature=0.2 # More deterministic output
+    )
 )

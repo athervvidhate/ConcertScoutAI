@@ -11,6 +11,8 @@ import time
 
 TM_KEY = os.getenv("TM_KEY")
 
+#FIXME: The current iteration gets the top artist by name. It needs to get the top artist by their unique id.
+
 def after_agent_callback(callback_context: CallbackContext) -> Optional[types.Content]:
     """
     Simple callback that logs when the agent finishes processing a request.
