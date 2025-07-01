@@ -11,7 +11,18 @@ import time
 
 TM_KEY = os.getenv("TM_KEY")
 
-#FIXME: The current iteration gets the top artist by name. It needs to get the top artist by their unique id.
+def _get_artist_id(artist_name: str) -> Optional[str]:
+    """Get the artist id from the artist name."""
+    try:
+        attraction_url = f"https://app.ticketmaster.com/discovery/v2/attractions?apikey={TM_KEY}&keyword={artist_name}&sort=relevance,desc"
+        response = requests.get(attraction_url).json()
+        attractions = response.get("_embedded", {}).get("attractions", [])
+        if attractions:
+            return attractions[0].get("id")
+        return None
+    except Exception as e:
+        print(f"Error getting artist ID for {artist_name}: {e}")
+        return None
 
 def after_agent_callback(callback_context: CallbackContext) -> Optional[types.Content]:
     """
@@ -57,6 +68,21 @@ def _build_query_string(latlong: List[str], **kwargs) -> str:
     
     return '&'.join([f"{k}={v}" for k, v in base_params.items()])
 
+def _build_artist_query_string(latlong: List[str], artist_id: str, **kwargs) -> str:
+    """Build query string for Ticketmaster API with artist ID parameter."""
+    base_params = {
+        'latlong': f"{latlong[0]},{latlong[1]}",
+        'radius': '100',
+        'unit': 'miles',
+        'segmentName': 'Music',
+        'size': '200',
+        'sort': 'distance,date,asc',
+        'attractionId': artist_id
+    }
+    base_params.update(kwargs)
+    
+    return '&'.join([f"{k}={v}" for k, v in base_params.items()])
+
 def _fetch_concerts(query_string: str, limit: int = None) -> List[dict]:
     """Fetch concerts from Ticketmaster API and extract event information."""
     try:
@@ -92,9 +118,17 @@ def ticketmaster_api(tool_context: ToolContext, artists: List[str], latlong: Lis
         # Get concerts for user's top artists (top 10 per artist)
         concerts_artists = []
         for artist in artists:
-            query_string = _build_query_string(latlong, keyword=artist)
-            artist_concerts = _fetch_concerts(query_string, limit=10)
-            concerts_artists.extend(artist_concerts)
+            artist_id = _get_artist_id(artist)
+            if artist_id:
+                query_string = _build_artist_query_string(latlong, artist_id)
+                artist_concerts = _fetch_concerts(query_string, limit=10)
+                concerts_artists.extend(artist_concerts)
+            else:
+                # Fallback to keyword search if artist ID not found
+                print(f"Artist ID not found for {artist}, falling back to keyword search")
+                query_string = _build_query_string(latlong, keyword=artist)
+                artist_concerts = _fetch_concerts(query_string, limit=10)
+                concerts_artists.extend(artist_concerts)
 
         # Get concerts for user's preferred genre (top 5)
         time.sleep(1)
@@ -105,9 +139,17 @@ def ticketmaster_api(tool_context: ToolContext, artists: List[str], latlong: Lis
         concerts_related = []
         time.sleep(1)
         for artist in related_artists:
-            query_string_related = _build_query_string(latlong, keyword=artist, classificationName=ticketmaster_genre)
-            related_concerts = _fetch_concerts(query_string_related, limit=5)
-            concerts_related.extend(related_concerts)
+            artist_id = _get_artist_id(artist)
+            if artist_id:
+                query_string_related = _build_artist_query_string(latlong, artist_id)
+                related_concerts = _fetch_concerts(query_string_related, limit=5)
+                concerts_related.extend(related_concerts)
+            else:
+                # Fallback to keyword search if artist ID not found
+                print(f"Artist ID not found for related artist {artist}, falling back to keyword search")
+                query_string_related = _build_query_string(latlong, keyword=artist)
+                related_concerts = _fetch_concerts(query_string_related, limit=5)
+                concerts_related.extend(related_concerts)
 
         #Save to state
         current_ticketmaster_concerts = tool_context.state.get("ticketmaster_concerts", [])

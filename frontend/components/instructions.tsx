@@ -35,7 +35,7 @@ export function Instructions({ type }: InstructionsProps) {
           </div>
           <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-blue-500/10 to-transparent hover:from-blue-500/20 transition-all duration-300">
             <Zap className="h-5 w-5 text-blue-400 flex-shrink-0" />
-            <p className="text-gray-300">Paste a Spotify playlist link to find concerts based on your music taste</p>
+            <p className="text-gray-300">Paste a public Spotify playlist link to find concerts based on your music taste</p>
           </div>
           <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-pink-500/10 to-transparent hover:from-pink-500/20 transition-all duration-300">
             <MapPin className="h-5 w-5 text-pink-400 flex-shrink-0" />

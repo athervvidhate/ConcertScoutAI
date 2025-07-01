@@ -72,7 +72,7 @@ export function ConcertCard({ concert }: { concert: Concert }) {
         </div>
 
         <div className="mb-6 flex-grow">
-          <p className="text-sm text-gray-400 leading-relaxed p-3 rounded-lg bg-gray-900/30 border border-gray-700 hover:border-gray-600 transition-colors duration-200">
+          <p className="text-sm text-gray-400 leading-relaxed p-3 rounded-lg bg-gray-900/30 border border-gray-700 hover:border-gray-600 transition-colors duration-200 italic">
             {concert.description}
           </p>
         </div>

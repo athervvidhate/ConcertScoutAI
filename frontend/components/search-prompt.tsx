@@ -6,7 +6,7 @@ import type { HTMLTextAreaElement } from "react"
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Loader2, Send, MessageCircle, X } from "lucide-react"
+import { Loader2, ArrowUp, MessageCircle, X } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { parseAiResponse } from "@/lib/parseAiResponse"
 import { AiChatBubble } from "@/components/ai-chat-bubble"
@@ -167,12 +167,15 @@ export function SearchPrompt() {
           <Button
             onClick={handleSubmit}
             disabled={!prompt.trim() || isLoading}
-            className="absolute top-3 right-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md p-1.5 h-8 w-8 z-20"
+            className="absolute top-3 right-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md p-2 h-auto z-20 flex items-center gap-2"
           >
             {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Thinking...</span>
+              </>
             ) : (
-              <Send className="h-4 w-4" />
+              <ArrowUp className="h-4 w-4" />
             )}
           </Button>
         </div>
