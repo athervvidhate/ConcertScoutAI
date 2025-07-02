@@ -65,7 +65,7 @@ export function Instructions({ type }: InstructionsProps) {
               <span className="font-medium text-white">Multiple Artists + Location</span>
             </div>
             <p className="text-gray-300">Find concerts for several artists at once in your chosen city.</p>
-            <span className="px-2 py-1 bg-green-500/20 text-green-200 rounded border border-green-500/30 text-xs font-mono">"Drake and Kendrick Lamar in Los Angeles"</span>
+            <span className="px-2 py-1 bg-green-500/20 text-green-200 rounded border border-green-500/30 text-xs font-mono">"Drake and Kendrick Lamar in London"</span>
           </div>
         </div>
       </div>
