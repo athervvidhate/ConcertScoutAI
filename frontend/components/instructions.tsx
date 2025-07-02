@@ -11,19 +11,19 @@ export function Instructions({ type }: InstructionsProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 max-w-2xl mx-auto">
           <div className="flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 rounded-full px-4 py-2">
             <Star className="h-5 w-5 text-purple-400" />
-            <span className="text-purple-100">Personalized concert recommendations</span>
+            <span className="text-purple-100 text-sm">Personalized concert recommendations</span>
           </div>
           <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-2">
             <Music className="h-5 w-5 text-blue-400" />
-            <span className="text-blue-100">Search by artist, genre, or Spotify playlist</span>
+            <span className="text-blue-100 text-sm">Search by artist, genre, or Spotify playlist</span>
           </div>
           <div className="flex items-center gap-2 bg-pink-500/10 border border-pink-500/20 rounded-full px-4 py-2">
             <MapPin className="h-5 w-5 text-pink-400" />
-            <span className="text-pink-100">Find shows near you or anywhere in the world</span>
+            <span className="text-pink-100 text-sm">Find shows near you or anywhere in the world</span>
           </div>
           <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-full px-4 py-2">
             <Ticket className="h-5 w-5 text-green-400" />
-            <span className="text-green-100">Get ticket links and event details instantly</span>
+            <span className="text-green-100 text-sm">Get ticket links and event details instantly</span>
           </div>
         </div>
       </div>
@@ -41,7 +41,7 @@ export function Instructions({ type }: InstructionsProps) {
               <span className="font-medium text-white">Artist + Location</span>
             </div>
             <p className="text-gray-300">Find concerts for your favorite artists in a specific place.</p>
-            <span className="px-2 py-1 bg-purple-500/20 text-purple-200 rounded border border-purple-500/30 text-xs font-mono">"Taylor Swift in New York"</span>
+            <span className="px-2 py-1 bg-purple-500/20 text-purple-200 rounded border border-purple-500/30 text-xs font-mono break-all">"Taylor Swift in New York"</span>
           </div>
           <div className="flex flex-col items-start gap-2 p-4 rounded-lg bg-gradient-to-r from-blue-500/10 to-transparent hover:from-blue-500/20 transition-all duration-300">
             <div className="flex items-center gap-2 mb-1">
@@ -49,7 +49,7 @@ export function Instructions({ type }: InstructionsProps) {
               <span className="font-medium text-white">Genre + Location</span>
             </div>
             <p className="text-gray-300">Search by music genre and location for broader recommendations.</p>
-            <span className="px-2 py-1 bg-blue-500/20 text-blue-200 rounded border border-blue-500/30 text-xs font-mono">"Rock concerts in Austin"</span>
+            <span className="px-2 py-1 bg-blue-500/20 text-blue-200 rounded border border-blue-500/30 text-xs font-mono break-all">"Rock concerts in Austin"</span>
           </div>
           <div className="flex flex-col items-start gap-2 p-4 rounded-lg bg-gradient-to-r from-pink-500/10 to-transparent hover:from-pink-500/20 transition-all duration-300">
             <div className="flex items-center gap-2 mb-1">
@@ -57,7 +57,7 @@ export function Instructions({ type }: InstructionsProps) {
               <span className="font-medium text-white">Spotify Playlist + Location</span>
             </div>
             <p className="text-gray-300">Paste a public Spotify playlist URL with a location for personalized picks.</p>
-            <span className="px-2 py-1 bg-pink-500/20 text-pink-200 rounded border border-pink-500/30 text-xs font-mono">"https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M in Los Angeles"</span>
+            <span className="px-2 py-1 bg-pink-500/20 text-pink-200 rounded border border-pink-500/30 text-xs font-mono break-all max-w-full">"https://open.spotify.com/playlist/... in Los Angeles"</span>
           </div>
           <div className="flex flex-col items-start gap-2 p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-transparent hover:from-green-500/20 transition-all duration-300">
             <div className="flex items-center gap-2 mb-1">
@@ -65,7 +65,7 @@ export function Instructions({ type }: InstructionsProps) {
               <span className="font-medium text-white">Multiple Artists + Location</span>
             </div>
             <p className="text-gray-300">Find concerts for several artists at once in your chosen city.</p>
-            <span className="px-2 py-1 bg-green-500/20 text-green-200 rounded border border-green-500/30 text-xs font-mono">"Drake and Kendrick Lamar in London"</span>
+            <span className="px-2 py-1 bg-green-500/20 text-green-200 rounded border border-green-500/30 text-xs font-mono break-all">"Drake and Kendrick Lamar concerts in London"</span>
           </div>
         </div>
       </div>
