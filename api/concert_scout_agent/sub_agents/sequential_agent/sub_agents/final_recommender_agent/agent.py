@@ -35,6 +35,7 @@ final_recommender_agent = Agent(
     - name
     - date
     - url
+    - image_url
     - description
 
     Concerts for Your Top Genre (Specify the genre):
@@ -44,6 +45,7 @@ final_recommender_agent = Agent(
     - name
     - date
     - url
+    - image_url
     - description
     Concerts for Your Related Artists:
     JSON format with the following fields:
@@ -52,6 +54,7 @@ final_recommender_agent = Agent(
     - name
     - date
     - url
+    - image_url
     - description
 
     **Example Output:**
@@ -124,6 +127,6 @@ final_recommender_agent = Agent(
     Unfortunately, there are no concerts for related artists in London at this time.
     """,
     generate_content_config=types.GenerateContentConfig(
-        temperature=0.2 # More deterministic output
+        temperature=0.2
     )
 )
