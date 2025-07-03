@@ -2,45 +2,27 @@ from google.adk.agents import Agent
 from typing import Dict, List
 import os
 import requests
-from google.adk.agents.callback_context import CallbackContext
-from google.genai import types
-from google.genai.types import GenerateContentConfig
 from typing import Optional
 from google.adk.tools import ToolContext
-import time
 
 TM_KEY = os.getenv("TM_KEY")
 
-def _get_artist_id(artist_name: str) -> Optional[str]:
+def _get_artist_info(artist_name: str) -> Optional[dict]:
     """Get the artist id from the artist name."""
     try:
         attraction_url = f"https://app.ticketmaster.com/discovery/v2/attractions?apikey={TM_KEY}&keyword={artist_name}&sort=relevance,desc"
         response = requests.get(attraction_url).json()
         attractions = response.get("_embedded", {}).get("attractions", [])
         if attractions:
-            return attractions[0].get("id")
+            attraction = attractions[0]
+            return {
+                "id": attraction.get("id"),
+                "genre": attraction.get("classifications", [{}])[0].get("genre", {}).get("name")
+            }
         return None
     except Exception as e:
-        print(f"Error getting artist ID for {artist_name}: {e}")
+        print(f"Error getting artist info for {artist_name}: {e}")
         return None
-
-def after_agent_callback(callback_context: CallbackContext) -> Optional[types.Content]:
-    """
-    Simple callback that logs when the agent finishes processing a request.
-
-    Args:
-        callback_context: Contains state and context information
-
-    Returns:
-        None to continue with normal agent processing
-    """
-    # Get the session state
-    state = callback_context.state
-    output_ticketmaster_concerts = state.get("ticketmaster_concerts", None)
-    print(f"Output: {output_ticketmaster_concerts}, {state['location']}, {state['genres']}, {state['top_artists']}, {state['related_artists']}")
-    state['ticketmaster_concerts'] = output_ticketmaster_concerts
-
-    return None
 
 def _extract_event_info(event: dict) -> dict:
     """Extract relevant event information from Ticketmaster API response."""
@@ -83,7 +65,7 @@ def _build_artist_query_string(latlong: List[str], artist_id: str, **kwargs) -> 
     
     return '&'.join([f"{k}={v}" for k, v in base_params.items()])
 
-def _fetch_concerts(query_string: str, limit: int = None) -> List[dict]:
+def _fetch_concerts(query_string: str, extra_info: dict, limit: int = None) -> List[dict]:
     """Fetch concerts from Ticketmaster API and extract event information."""
     try:
         url = f'https://app.ticketmaster.com/discovery/v2/events?apikey={TM_KEY}&{query_string}'
@@ -93,7 +75,7 @@ def _fetch_concerts(query_string: str, limit: int = None) -> List[dict]:
         if limit:
             events = events[:limit]
             
-        return [_extract_event_info(event) for event in events]
+        return [{**_extract_event_info(event), 'genre': extra_info.get('genre')} for event in events]
     except Exception as e:
         print(f"Error fetching concerts: {e}")
         return []
@@ -118,37 +100,35 @@ def ticketmaster_api(tool_context: ToolContext, artists: List[str], latlong: Lis
         # Get concerts for user's top artists (top 10 per artist)
         concerts_artists = []
         for artist in artists:
-            artist_id = _get_artist_id(artist)
-            if artist_id:
-                query_string = _build_artist_query_string(latlong, artist_id)
-                artist_concerts = _fetch_concerts(query_string, limit=10)
+            artist_info = _get_artist_info(artist)
+            if artist_info:
+                query_string = _build_artist_query_string(latlong, artist_info["id"])
+                artist_concerts = _fetch_concerts(query_string, artist_info, limit=10)
                 concerts_artists.extend(artist_concerts)
             else:
                 # Fallback to keyword search if artist ID not found
                 print(f"Artist ID not found for {artist}, falling back to keyword search")
                 query_string = _build_query_string(latlong, keyword=artist)
-                artist_concerts = _fetch_concerts(query_string, limit=10)
+                artist_concerts = _fetch_concerts(query_string, artist_info, limit=10)
                 concerts_artists.extend(artist_concerts)
 
         # Get concerts for user's preferred genre (top 5)
-        time.sleep(1)
         query_string_genre = _build_query_string(latlong, classificationName=ticketmaster_genre)
-        concerts_genre = _fetch_concerts(query_string_genre, limit=5)
+        concerts_genre = _fetch_concerts(query_string_genre, extra_info={'genre': ticketmaster_genre}, limit=5)
 
         # Get concerts for related artists (top 5 per artist)
         concerts_related = []
-        time.sleep(1)
         for artist in related_artists:
-            artist_id = _get_artist_id(artist)
-            if artist_id:
-                query_string_related = _build_artist_query_string(latlong, artist_id)
-                related_concerts = _fetch_concerts(query_string_related, limit=5)
+            artist_info = _get_artist_info(artist)
+            if artist_info:
+                query_string_related = _build_artist_query_string(latlong, artist_info["id"])
+                related_concerts = _fetch_concerts(query_string_related, artist_info, limit=5)
                 concerts_related.extend(related_concerts)
             else:
                 # Fallback to keyword search if artist ID not found
                 print(f"Artist ID not found for related artist {artist}, falling back to keyword search")
                 query_string_related = _build_query_string(latlong, keyword=artist)
-                related_concerts = _fetch_concerts(query_string_related, limit=5)
+                related_concerts = _fetch_concerts(query_string_related, artist_info, limit=5)
                 concerts_related.extend(related_concerts)
 
         #Save to state

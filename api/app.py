@@ -69,7 +69,7 @@ async def startup_event():
     logger.info("Concert Scout AI API starting up...")
     
     # Check required environment variables
-    required_vars = ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "TICKETMASTER_API_KEY", "GOOGLE_API_KEY"]
+    required_vars = ["SPOTIFY_CLIENT", "SPOTIFY_SECRET", "TM_KEY", "GOOGLE_API_KEY"]
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     
     if missing_vars:
@@ -232,9 +232,9 @@ async def health_check():
     try:
         # Check if required environment variables are set
         env_status = {
-            "SPOTIFY_CLIENT_ID": bool(os.getenv("SPOTIFY_CLIENT_ID")),
-            "SPOTIFY_CLIENT_SECRET": bool(os.getenv("SPOTIFY_CLIENT_SECRET")),
-            "TICKETMASTER_API_KEY": bool(os.getenv("TICKETMASTER_API_KEY")),
+            "SPOTIFY_CLIENT_ID": bool(os.getenv("SPOTIFY_CLIENT")),
+            "SPOTIFY_CLIENT_SECRET": bool(os.getenv("SPOTIFY_SECRET")),
+            "TICKETMASTER_API_KEY": bool(os.getenv("TM_KEY")),
             "GOOGLE_API_KEY": bool(os.getenv("GOOGLE_API_KEY")),
         }
         

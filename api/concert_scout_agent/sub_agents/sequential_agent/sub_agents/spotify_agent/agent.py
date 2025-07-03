@@ -152,17 +152,12 @@ def spotify_api(tool_context: ToolContext, playlist_id: str, location: str) -> D
 
         new_top_artists = current_top_artists + top_artist_names
         new_genres = current_genres + genres
-
-        # Update the state
-        tool_context.state["top_artists"] = new_top_artists
-        tool_context.state["genres"] = new_genres
-        tool_context.state["location"] = location
         
         return {
             "status": "success",
             "message": f"Successfully analyzed playlist with {len(tracks)} tracks",
-            "top_artists": top_artist_names,
-            "genres": genres
+            "top_artists": new_top_artists,
+            "genres": new_genres
         }
         
     except SpotifyError as e:
@@ -180,25 +175,52 @@ def spotify_api(tool_context: ToolContext, playlist_id: str, location: str) -> D
             "genres": []
         }
 
+def data_retrieval_tool(tool_context: ToolContext,location: str, artists: Optional[List[str]] = None, genre: Optional[str] = None, playlist_id: Optional[str] = None) -> Dict:
+    """
+    Retrieve data from the user's input and call the spotify_api tool if given a playlist URL or ID.
+
+    Args:
+        location: The location of the user
+        artists?: The artist names of the user (optional)
+        genre?: The genre of the user (optional)
+        playlist_id?: The playlist ID of the user (optional)
+    Returns:
+        Dict containing status, top artists, genres, and location
+    """
+    if playlist_id:
+        spotify_data = spotify_api(tool_context, playlist_id, location)
+        # Update the state
+        tool_context.state["top_artists"] = spotify_data["top_artists"]
+        tool_context.state["genres"] = spotify_data["genres"]
+        tool_context.state["location"] = location
+        return spotify_data
+    else:
+        tool_context.state["top_artists"] = artists
+        tool_context.state["genres"] = genre
+        tool_context.state["location"] = location
+        return {
+            "top_artists": artists,
+            "genres": genre,
+            "location": location
+        }
+    
+
 spotify_agent = Agent(
     name="spotify_agent",
     model="gemini-2.0-flash",
-    description="Spotify retrieval agent for the Concert Scout AI",
+    description="Data handoff and retrieval agent for the Concert Scout AI",
     instruction="""
-    You are a Spotify retrieval agent for the Concert Scout AI.
-    Your role is to retrieve the user's Spotify playlist (if provided) and return the top artists in the playlist as well as the genres of the artists.
-    You will also return the location that the user inputted. Don't change the location.
+    You are a data handoff and retrieval agent for the Concert Scout AI.
+    Your role is to retrieve data form the user's input and pass it on to the next agent.
 
     **CRITICAL INSTRUCTIONS:**
-    1. You MUST ALWAYS use the spotify_api tool when given a playlist URL or ID
-        1a. If you are just given artist names, don't use the tool, and just return the artist names and location. Let genres be empty.
-        1b. If you are just given a genre, don't use the tool, and just return the genre and location. Let top_artists be empty.
-    2. Call the spotify_api tool with the playlist ID
-    3. NEVER make up or hallucinate data - you must use the tool to get real data
+    1. You MUST ALWAYS use the data_retrieval_tool.
+    2. Don't change the location.
+    3. NEVER make up or hallucinate data - you must use the tool to get real data.
     4. Return the final results in the format described below.
 
     **Available Tools:**
-    1. spotify_api: Use this to retrieve and analyze Spotify playlists
+    1. data_retrieval_tool: Use this to retrieve data from the user's input and call Spotify's API if given a playlist URL or ID.
 
     **Response Format:**
     After using the tools, return your response in this format, do NOT return any markdown formatting:
@@ -208,8 +230,7 @@ spotify_agent = Agent(
         "location": "Location 1"
     }
 
-    **MANDATORY:** You MUST call the spotify_api tool first. Do not respond with any data until you have called the tool.
+    **MANDATORY:** You MUST call the data_retrieval_tool first. Do not respond until you have called the tool.
     """,
-    tools=[spotify_api],
-    #output_key="playlist_info"
+    tools=[data_retrieval_tool]
 )
