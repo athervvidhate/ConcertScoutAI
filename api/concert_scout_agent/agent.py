@@ -37,14 +37,3 @@ root_agent = Agent(
     sub_agents=[sequential_agent],
     output_key="concert_scout_agent_output"
 )
-
-"""
-    Information collected so far:
-    - Artist: {top_artists}
-    - Genre: {genres}
-    - Location: {location}
-    - Main Artists: {top_artists}
-    - Related Artists: {related_artists}
-    - Ticketmaster Concerts: {ticketmaster_concerts}
-
-"""
