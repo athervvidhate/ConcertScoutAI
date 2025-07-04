@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Calendar, MapPin, Music, ExternalLink, Heart } from "lucide-react"
 import { useState } from "react"
 
-interface Concert {
+export interface Concert {
   id: string
   artist: string
   venue: string
