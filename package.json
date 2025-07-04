@@ -23,6 +23,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@radix-ui/react-select": "^2.2.5",
     "@vercel/analytics": "^1.5.0"
   }
 }
