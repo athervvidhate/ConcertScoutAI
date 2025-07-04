@@ -24,6 +24,28 @@ CLIENT_SECRET = os.getenv("SPOTIFY_SECRET")
 # Constants
 TOP_ARTISTS_LIMIT = 5
 
+def after_agent_callback(callback_context: CallbackContext) -> Optional[types.Content]:
+    """
+    Simple callback that logs when the agent finishes processing a request.
+
+    Args:
+        callback_context: Contains state and context information
+
+    Returns:
+        None to continue with normal agent processing
+    """
+    # Get the session state
+    state = callback_context.state
+
+    output_playlist_info = state.get("playlist_info", None)
+    dict_output = json.loads(output_playlist_info.strip('```json\n').strip('\n```'))
+    
+    print(f"Output: {dict_output}")
+    # state['top_artists'] = dict_output['top_artists']
+    # state['genres'] = dict_output['genres']
+    state['location'] = dict_output['location']
+
+    return None
 
 class SpotifyError(Exception):
     """Custom exception for Spotify API errors"""
@@ -153,7 +175,7 @@ def spotify_api(tool_context: ToolContext, playlist_id: str, location: str) -> D
             "genres": []
         }
 
-def data_retrieval_tool(tool_context: ToolContext,location: str, artists: Optional[List[str]] = None, genre: Optional[str] = None, playlist_id: Optional[str] = None, date: Optional[str] = None) -> Dict:
+def data_retrieval_tool(tool_context: ToolContext,location: str, artists: Optional[List[str]] = None, genre: Optional[str] = None, playlist_id: Optional[str] = None) -> Dict:
     """
     Retrieve data from the user's input and call the spotify_api tool if given a playlist URL or ID.
 
@@ -162,7 +184,6 @@ def data_retrieval_tool(tool_context: ToolContext,location: str, artists: Option
         artists?: The artist names of the user (optional)
         genre?: The genre of the user (optional)
         playlist_id?: The playlist ID of the user (optional)
-        date?: The date of the user (optional)
     Returns:
         Dict containing status, top artists, genres, and location
     """
@@ -172,18 +193,15 @@ def data_retrieval_tool(tool_context: ToolContext,location: str, artists: Option
         tool_context.state["top_artists"] = spotify_data["top_artists"]
         tool_context.state["genres"] = spotify_data["genres"]
         tool_context.state["location"] = location
-        tool_context.state["date"] = date if date else None
         return spotify_data
     else:
         tool_context.state["top_artists"] = artists
         tool_context.state["genres"] = genre
         tool_context.state["location"] = location
-        tool_context.state["date"] = date if date else None
         return {
             "top_artists": artists,
             "genres": genre,
-            "location": location,
-            "date": date
+            "location": location
         }
     
 
@@ -209,8 +227,7 @@ spotify_agent = Agent(
     {
         "top_artists": ["Artist 1", "Artist 2", "Artist 3", ...],
         "genres": ["Genre 1", "Genre 2", "Genre 3", ...],
-        "location": "Location 1",
-        "date": "Date 1"
+        "location": "Location 1"
     }
 
     **MANDATORY:** You MUST call the data_retrieval_tool first. Do not respond until you have called the tool.

@@ -29,7 +29,7 @@ final_recommender_agent = Agent(
     If you don't have all of the information, display only the section for which you have the information.
 
     For each one, make sure to include the venue name, city name, name of the concert, date of the concert, and the url of the concert.
-    You should also include a detailed description of 1-2 sentences why you think it's a good fit for the user. Don't include the date in the description. 
+    You should also include a detailed description of 1-3 sentences why you think it's a good fit for the user. Don't include the date in the description. 
     Try to make it sound like a recommendation of why the user would like it beyond its genre or it being a related artist.
 
     **Example Output:**
