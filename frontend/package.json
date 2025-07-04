@@ -24,7 +24,8 @@
     "react": "^19",
     "react-dom": "^19",
     "tailwind-merge": "^2.5.5",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "@radix-ui/react-select": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "^22",
