@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-import type { HTMLTextAreaElement } from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -15,7 +14,7 @@ export function SearchPrompt() {
   const [prompt, setPrompt] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [followUpMessage, setFollowUpMessage] = useState<string | null>(null)
-  const [originalQuery, setOriginalQuery] = useState<string | null>(null)
+  const [conversationMessages, setConversationMessages] = useState<string[]>([])
   const [sessionId, setSessionId] = useState<string | undefined>(undefined)
   const [isFocused, setIsFocused] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
@@ -30,10 +29,14 @@ export function SearchPrompt() {
 
     try {
       let messageToSend = prompt;
-      if (originalQuery) {
-        // This is a follow-up response, concatenate with original query
-        messageToSend = `${originalQuery} ${prompt}`;
-        console.log('Concatenating messages:', { original: originalQuery, followUp: prompt, combined: messageToSend });
+      if (conversationMessages.length > 0) {
+        // This is a follow-up response, concatenate with all previous messages
+        messageToSend = `${conversationMessages.join(' ')} ${prompt}`;
+        console.log('Concatenating messages:', { 
+          previous: conversationMessages, 
+          followUp: prompt, 
+          combined: messageToSend 
+        });
       }
 
       const response = await apiService.chat({
@@ -47,9 +50,8 @@ export function SearchPrompt() {
       const parsedData = parseAiResponse(response.response)
 
       if (parsedData.isFollowUpQuestion && parsedData.followUpMessage) {
-        if (!originalQuery) {
-          setOriginalQuery(prompt);
-        }
+        // Add the current prompt to conversation history
+        setConversationMessages(prev => [...prev, prompt]);
         setFollowUpMessage(parsedData.followUpMessage)
         setPrompt("")
       } else {
@@ -69,7 +71,7 @@ export function SearchPrompt() {
         
         router.push(`/results?${queryParams.toString()}`)
         
-        setOriginalQuery(null)
+        setConversationMessages([])
         setFollowUpMessage(null)
       }
     } catch (error: any) {
@@ -108,7 +110,7 @@ export function SearchPrompt() {
 
   const handleDismissFollowUp = () => {
     setFollowUpMessage(null)
-    setOriginalQuery(null)
+    setConversationMessages([])
     setSessionId(undefined)
     setPrompt("")
   }
