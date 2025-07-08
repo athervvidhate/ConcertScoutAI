@@ -4,7 +4,7 @@ export interface Concert {
   venue: string;
   location: string;
   date: string;
-  time?: string;
+  time: string;
   genre?: string;
   imageUrl?: string;
   ticketUrl: string;
@@ -30,6 +30,7 @@ interface ApiConcert {
   venue_name: string;
   city_name: string;
   date: string;
+  time: string;
   url: string;
   genre: string;
   image_url: string;
@@ -115,6 +116,7 @@ function isFollowUpQuestion(response: string): boolean {
 
 function convertApiConcertToConcert(apiConcert: ApiConcert, index: number, category: string): Concert {
   const formattedDate = formatDate(apiConcert.date);
+  const formattedTime = formatTime(apiConcert.time);
   
   return {
     id: `${category}-${index}-${Date.now()}-${Math.random()}`,
@@ -122,6 +124,7 @@ function convertApiConcertToConcert(apiConcert: ApiConcert, index: number, categ
     venue: apiConcert.venue_name,
     location: apiConcert.city_name,
     date: formattedDate,
+    time: formattedTime,
     ticketUrl: apiConcert.url,
     genre: apiConcert.genre,
     description: apiConcert.description,
@@ -156,5 +159,40 @@ function formatDate(dateStr: string): string {
     return dateStr;
   } catch {
     return dateStr;
+  }
+}
+
+function formatTime(timeStr: string): string {
+  try {
+    // Handle HH:MM:SS format (e.g., "18:00:00")
+    if (timeStr.match(/^\d{1,2}:\d{2}:\d{2}$/)) {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      const date = new Date();
+      date.setHours(hours, minutes, 0);
+      
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+    
+    // Handle HH:MM format (e.g., "18:00")
+    if (timeStr.match(/^\d{1,2}:\d{2}$/)) {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      const date = new Date();
+      date.setHours(hours, minutes, 0);
+      
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+    
+    // If it's already in a readable format, return as is
+    return timeStr;
+  } catch {
+    return timeStr;
   }
 }
