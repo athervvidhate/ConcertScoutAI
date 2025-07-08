@@ -66,7 +66,7 @@ sessions: Dict[str, Session] = {}
 @app.on_event("startup")
 async def startup_event():
     """Log startup information and check environment variables."""
-    logger.info("Concert Scout AI API starting up...")
+    #logger.info("Concert Scout AI API starting up...")
     
     # Check required environment variables
     required_vars = ["SPOTIFY_CLIENT", "SPOTIFY_SECRET", "TM_KEY", "GOOGLE_API_KEY"]
@@ -77,7 +77,7 @@ async def startup_event():
     else:
         logger.info("All required environment variables are set")
     
-    logger.info("Concert Scout AI API startup complete")
+    #logger.info("Concert Scout AI API startup complete")
 
 # Pydantic models for request/response
 class ChatRequest(BaseModel):
@@ -120,7 +120,6 @@ async def run_prompt(session: Session, new_message: str, user_id: str) -> tuple[
             if event.is_final_response():
                 event_data["type"] = "text"
                 event_data["content"] = event.content.parts[0].text
-                print(event.author)
                 if event.author == "final_recommender_agent" or event.author == "concert_scout_agent": #Only add follow up questions and final responses
                     events.append(event_data)
 
@@ -148,7 +147,7 @@ async def run_prompt(session: Session, new_message: str, user_id: str) -> tuple[
 async def chat(request: ChatRequest):
     """Send a message to the Concert Scout AI agent."""
     try:
-        logger.info(f"Received chat request from user: {request.user_id}")
+        #logger.info(f"Received chat request from user: {request.user_id}")
         user_id = request.user_id
         
         # Get or create session
@@ -173,7 +172,7 @@ async def chat(request: ChatRequest):
             if event.get("type") == "text" and event.get("author") != "user":
                 text_response += event.get("content", "")
         
-        logger.info(f"Chat request completed successfully for session: {session.id}")
+        #logger.info(f"Chat request completed successfully for session: {session.id}")
         return ChatResponse(
             response=text_response,
             session_id=session.id,

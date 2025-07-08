@@ -19,8 +19,6 @@ export interface Concert {
 }
 
 export function ConcertCard({ concert }: { concert: Concert }) {
-  const [isLiked, setIsLiked] = useState(false)
-
   const formattedDate = new Date(concert.date).toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -38,14 +36,6 @@ export function ConcertCard({ concert }: { concert: Concert }) {
           className="object-cover transition-transform duration-300 hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-        <button
-          onClick={() => setIsLiked(!isLiked)}
-          className="absolute top-3 right-3 p-2 rounded-full bg-black/50 hover:bg-black/70 hover:scale-110 transition-all duration-200"
-        >
-          <Heart
-            className={`h-4 w-4 transition-all duration-200 ${isLiked ? "text-red-500 fill-red-500 scale-110" : "text-white hover:text-red-400"}`}
-          />
-        </button>
       </div>
 
       <div className="p-6 flex flex-col flex-grow">

@@ -90,14 +90,13 @@ def _get_artist_genres(sp: spotipy.Spotify, artist_ids: List[str]) -> List[str]:
     except Exception as e:
         raise SpotifyError(f"Failed to fetch artist genres: {str(e)}")
 
-def spotify_api(tool_context: ToolContext, playlist_id: str, location: str) -> Dict:
+def spotify_api(tool_context: ToolContext, playlist_id: str) -> Dict:
     """
     Retrieve the user's Spotify playlist, get the top artists in the playlist, and get the genres of the artists.
     
     Args:
         tool_context: The tool context
         playlist_id: Spotify playlist ID, URI, or URL (e.g., "37i9dQZF1DXcBWIGoYBM5M" or "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
-        location: The location of the user
     Returns:
         Dict containing status, top artists, and genres
     """
@@ -127,6 +126,12 @@ def spotify_api(tool_context: ToolContext, playlist_id: str, location: str) -> D
         # Saves the top artists and genres to the state
         current_top_artists = tool_context.state.get("top_artists", [])
         current_genres = tool_context.state.get("genres", [])
+
+        # Ensure we have lists, not None values
+        if current_top_artists is None:
+            current_top_artists = []
+        if current_genres is None:
+            current_genres = []
 
         new_top_artists = current_top_artists + top_artist_names
         new_genres = current_genres + genres
@@ -167,21 +172,22 @@ def data_retrieval_tool(tool_context: ToolContext,location: str, artists: Option
         Dict containing status, top artists, genres, and location
     """
     if playlist_id:
-        spotify_data = spotify_api(tool_context, playlist_id, location)
+        spotify_data = spotify_api(tool_context, playlist_id)
         # Update the state
         tool_context.state["top_artists"] = spotify_data["top_artists"]
         tool_context.state["genres"] = spotify_data["genres"]
         tool_context.state["location"] = location
-        tool_context.state["date"] = date if date else None
+        tool_context.state["date"] = date if date else ''
         return spotify_data
     else:
-        tool_context.state["top_artists"] = artists
-        tool_context.state["genres"] = genre
+        # Ensure we store lists, not None values
+        tool_context.state["top_artists"] = artists if artists is not None else []
+        tool_context.state["genres"] = [genre] if genre is not None else []
         tool_context.state["location"] = location
-        tool_context.state["date"] = date if date else None
+        tool_context.state["date"] = date if date else ''
         return {
-            "top_artists": artists,
-            "genres": genre,
+            "top_artists": artists if artists is not None else [],
+            "genres": [genre] if genre is not None else [],
             "location": location,
             "date": date
         }

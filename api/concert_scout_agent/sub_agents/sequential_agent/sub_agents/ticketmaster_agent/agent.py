@@ -4,8 +4,18 @@ import os
 import requests
 from typing import Optional
 from google.adk.tools import ToolContext
+from google.genai import types
+from google.adk.agents.callback_context import CallbackContext
+from google.adk.models import LlmRequest
+from datetime import datetime
 
 TM_KEY = os.getenv("TM_KEY")
+
+def add_current_date(callback_context: CallbackContext, llm_request: LlmRequest) -> None:
+    """Add the current date to the session state."""
+    original_instruction = llm_request.config.system_instruction
+    modified_text = original_instruction + f"\n The current date is {datetime.now().isoformat()[:10]}." 
+    llm_request.config.system_instruction = modified_text
 
 def _get_artist_info(artist_name: str) -> Optional[dict]:
     """Get the artist id from the artist name."""
@@ -27,26 +37,33 @@ def _get_artist_info(artist_name: str) -> Optional[dict]:
 def _extract_event_info(event: dict) -> dict:
     """Extract relevant event information from Ticketmaster API response."""
     venue = event['_embedded']['venues'][0]
+    images = event.get('images', [])
+    # Find 16_9 image with width >= 1024
+    selected_image = None
+    for img in images:
+        if img.get('ratio') == '16_9' and img.get('width', 0) >= 1024:
+            selected_image = img['url']
+            break
+    if not selected_image and images:
+        selected_image = images[0].get('url')
     return {
         'venue_name': venue.get('name', 'Venue information not available'),
         'city_name': venue.get('city', {}).get('name', 'City information not available'),
         'name': event['name'],
         'date': event['dates']['start']['localDate'],
+        'time': event['dates']['start'].get('localTime', # some events don't have localTime, use fallbacks
+                                            event['dates']['start'].get('dateTime', 'Time information not available')),
         'url': event['url'],
-        'image_url': event['images'][0]['url'] if event['images'] else None
+        'image_url': selected_image
     }
 
 def _build_date_params(date: Optional[List[str]]) -> dict:
     """Build date parameters for Ticketmaster API calls."""
     if not date or len(date) < 2:
         return {}
-    
+
     params = {}
-    if date[0]:
-        params['startDateTime'] = date[0]
-    if date[1]:
-        params['endDateTime'] = date[1]
-    
+    params['localStartEndDateTime'] = f'{date[0]},{date[1]}'
     return params
 
 def _build_query_string(latlong: List[str], **kwargs) -> str:
@@ -116,7 +133,7 @@ def ticketmaster_api(tool_context: ToolContext, artists: List[str], latlong: Lis
             - error_message (str): Error description if status is "error"
     """
     try:
-        # Get concerts for user's top artists (top 15 per artist)
+        # Get concerts for user's top artists (top 15)
         concerts_artists = []
         for artist in artists:
             artist_info = _get_artist_info(artist)
@@ -131,30 +148,43 @@ def ticketmaster_api(tool_context: ToolContext, artists: List[str], latlong: Lis
                 artist_concerts = _fetch_concerts(query_string, artist_info, limit=15)
                 concerts_artists.extend(artist_concerts)
 
-        # Get concerts for user's preferred genre (top 6)
-        query_string_genre = _build_query_string(latlong, classificationName=ticketmaster_genre, **_build_date_params(date))
-        concerts_genre = _fetch_concerts(query_string_genre, extra_info={'genre': ticketmaster_genre}, limit=6)
+        # Create a set of URLs from top artists concerts to avoid duplicates
+        top_artist_urls = {concert['url'] for concert in concerts_artists}
 
-        # Get concerts for related artists (top 15 per artist)
+        # Get concerts for user's preferred genre (top 6), excluding duplicates from top artists
+        query_string_genre = _build_query_string(latlong, classificationName=ticketmaster_genre, **_build_date_params(date))
+        all_genre_concerts = _fetch_concerts(query_string_genre, extra_info={'genre': ticketmaster_genre}, limit=20)  # Fetch more to account for filtering
+        concerts_genre = []
+        for concert in all_genre_concerts:
+            if concert['url'] not in top_artist_urls:
+                concerts_genre.append(concert)
+                if len(concerts_genre) >= 6:  # Stop when we have 6 unique concerts
+                    break
+
+        # Get concerts for related artists (top 15), excluding duplicates from top artists
         concerts_related = []
         for artist in related_artists:
             artist_info = _get_artist_info(artist)
             if artist_info:
                 query_string_related = _build_artist_query_string(latlong, artist_info["id"], **_build_date_params(date))
-                related_concerts = _fetch_concerts(query_string_related, artist_info, limit=15)
-                concerts_related.extend(related_concerts)
+                all_related_concerts = _fetch_concerts(query_string_related, artist_info, limit=30)  # Fetch more to account for filtering
+                for concert in all_related_concerts:
+                    if concert['url'] not in top_artist_urls and len(concerts_related) < 15:
+                        concerts_related.append(concert)
             else:
                 # Fallback to keyword search if artist ID not found
                 print(f"Artist ID not found for related artist {artist}, falling back to keyword search")
                 query_string_related = _build_query_string(latlong, keyword=artist, **_build_date_params(date))
-                related_concerts = _fetch_concerts(query_string_related, artist_info, limit=15)
-                concerts_related.extend(related_concerts)
+                all_related_concerts = _fetch_concerts(query_string_related, artist_info, limit=30)  # Fetch more to account for filtering
+                for concert in all_related_concerts:
+                    if concert['url'] not in top_artist_urls and len(concerts_related) < 15:
+                        concerts_related.append(concert)
 
         #Save to state
         current_ticketmaster_concerts = tool_context.state.get("ticketmaster_concerts", [])
         new_ticketmaster_concerts = current_ticketmaster_concerts + concerts_artists + concerts_genre + concerts_related
         tool_context.state["ticketmaster_concerts"] = new_ticketmaster_concerts
-
+        
         return {
             "status": "success",
             "concerts_artists": concerts_artists,
@@ -179,13 +209,13 @@ ticketmaster_agent = Agent(
     You are the Ticketmaster Retrieval Agent for the Concert Scout AI. Your sole responsibility is to process user data and retrieve concert information via the ticketmaster_api tool.
 
     1. Data Ingestion
-    You will receive the following data from the session state:
+    You will receive the following data from the session state and agent response history:
         playlist_info: A dictionary containing:
             top_artists: A list of strings.
             genres: A list of Spotify genre strings.
         related_artists: A list of strings.
         location: A string detailing the user's location.
-        date: A string detailing the user's date or date range. If the user did not provide a date or date range, the date will be None.
+        date: A string detailing the user's date or date range. If the user did not provide a date or date range, the date will be ''.
 
     2. Core Logic
     Your execution must follow these sequential steps:
@@ -200,14 +230,14 @@ ticketmaster_agent = Agent(
                 "new york" → ["40.7128", "-74.0060"]
 
         Step C: Date Range Conversion
-            Convert the user's date or date range to a ISO 8601 date range.
+            Convert the user's date or date range to a ISO 8601 date range (without the Z).
             The current year is 2025.
             The user may provide a date, a date range, a month, or a season. Intelligently convert the user's input to a ISO 8601 date range.
             Example Conversions:
-                "July 13th" → ["2025-07-13T00:00:00Z", "2025-07-13T23:59:59Z"]
-                "July 13th - July 15th" → ["2025-07-13T00:00:00Z", "2025-07-15T23:59:59Z"]
-                "July" → ["2025-07-01T00:00:00Z", "2025-07-31T23:59:59Z"]
-                "Summer" → ["2025-06-21T00:00:00Z", "2025-09-22T23:59:59Z"]
+                "July 13th" → ["2025-07-13T00:00:00", "2025-07-13T23:59:59"]
+                "July 13th - July 15th" → ["2025-07-13T00:00:00", "2025-07-15T23:59:59"]
+                "July" → ["2025-07-01T00:00:00", "2025-07-31T23:59:59"]
+                "Summer" → ["2025-06-21T00:00:00", "2025-09-22T23:59:59"]
 
         Step D: Mandatory API Call
             You are required to call the ticketmaster_api tool.
@@ -220,15 +250,17 @@ ticketmaster_agent = Agent(
             The date or date range is optional. If the user provides a date or date range, the ISO 8601 date range must be included in the tool call.
 
     3. Output Specification
-        Return only the direct  response from the ticketmaster_api tool.
+        Return only whether the ticketmaster_api tool was called successfully or not.
         The expected format of the tool's response is, do NOT return any markdown formatting:
         {
             "status": "success",
-            "concerts_artists": [],
-            "concerts_genre": [],
-            "concerts_related": []
+            "error_message": "Error message if status is error or empty string if status is success"
         }
 
     """,
     tools=[ticketmaster_api],
+    generate_content_config=types.GenerateContentConfig(
+        temperature=0.0
+    ),
+    before_model_callback=[add_current_date]
 )
