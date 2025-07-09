@@ -15,7 +15,7 @@ from google.adk.runners import InMemoryRunner
 from google.adk.sessions import Session
 from google.genai import types
 import httpx
-import aioredis
+import redis.asyncio as aioredis
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
