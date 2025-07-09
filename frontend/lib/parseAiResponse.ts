@@ -56,7 +56,6 @@ export function parseAiResponse(aiResponse: string): ParsedConcerts {
   };
 
   try {
-    console.log('Parsing AI response:', aiResponse);
     
     // Check if this is a follow-up question
     if (isFollowUpQuestion(aiResponse)) {

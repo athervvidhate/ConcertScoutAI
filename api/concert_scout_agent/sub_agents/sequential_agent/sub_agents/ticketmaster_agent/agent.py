@@ -74,7 +74,7 @@ def _build_query_string(latlong: List[str], **kwargs) -> str:
         'unit': 'miles',
         'segmentName': 'Music',
         'size': '200',
-        'sort': 'distance,date,asc'
+        'sort': 'relevance,desc'
     }
     base_params.update(kwargs)
     
@@ -91,7 +91,7 @@ def _build_artist_query_string(latlong: List[str], artist_id: str, **kwargs) -> 
         'unit': 'miles',
         'segmentName': 'Music',
         'size': '200',
-        'sort': 'distance,date,asc',
+        'sort': 'relevance,desc',
         'attractionId': artist_id
     }
     base_params.update(kwargs)

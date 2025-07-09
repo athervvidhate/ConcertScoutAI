@@ -56,9 +56,7 @@ export function ConcertResults({
   const [sortBy, setSortBy] = useState("date");
   // Parse the AI response to get actual concert data
   const parsedData: ParsedConcerts = parseAiResponse(aiResponse);
-  
-  console.log('Parsed concert data:', parsedData); // Debug log
-  
+    
   // Only use parsed data from the AI response, no fallback to mock data
   const concerts = {
     topArtists: parsedData.topArtists.length > 0 ? parsedData.topArtists.map(concert => ({

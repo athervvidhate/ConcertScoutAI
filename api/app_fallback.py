@@ -5,6 +5,7 @@ import os
 import logging
 from uuid import uuid4
 import json
+import threading
 
 from concert_scout_agent.agent import root_agent
 from dotenv import load_dotenv
@@ -15,7 +16,6 @@ from google.adk.runners import InMemoryRunner
 from google.adk.sessions import Session
 from google.genai import types
 import httpx
-import aioredis
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -71,8 +71,9 @@ runner = InMemoryRunner(
     agent=root_agent,
 )
 
-# Redis connection
-redis_client: Optional[aioredis.Redis] = None
+# Thread-safe in-memory session storage
+sessions: Dict[str, Session] = {}
+sessions_lock = threading.Lock()
 
 # HTTP client for external API calls
 http_client: Optional[httpx.AsyncClient] = None
@@ -80,19 +81,6 @@ http_client: Optional[httpx.AsyncClient] = None
 # Throttler for external API calls
 spotify_throttler = Throttler(rate_limit=10, period=1)  # 10 requests per second
 ticketmaster_throttler = Throttler(rate_limit=5, period=1)  # 5 requests per second
-
-# Session storage with Redis
-async def get_redis_client() -> aioredis.Redis:
-    """Get Redis client with connection pooling."""
-    global redis_client
-    if redis_client is None:
-        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-        redis_client = aioredis.from_url(
-            redis_url,
-            encoding="utf-8",
-            max_connections=20  # Connection pool size
-        )
-    return redis_client
 
 async def get_http_client() -> httpx.AsyncClient:
     """Get HTTP client with connection pooling."""
@@ -104,29 +92,25 @@ async def get_http_client() -> httpx.AsyncClient:
         )
     return http_client
 
-async def store_session(session_id: str, session_data: dict):
-    """Store session data in Redis with expiration (as JSON)."""
-    redis = await get_redis_client()
-    session_json = json.dumps(session_data)
-    await redis.setex(f"session:{session_id}", 3600, session_json)
+def store_session(session_id: str, session: Session):
+    """Store session data in memory with thread safety."""
+    with sessions_lock:
+        sessions[session_id] = session
 
-async def get_session(session_id: str) -> Optional[dict]:
-    """Retrieve session data from Redis (as JSON)."""
-    redis = await get_redis_client()
-    session_json = await redis.get(f"session:{session_id}")
-    if session_json:
-        return json.loads(session_json)
-    return None
+def get_session(session_id: str) -> Optional[Session]:
+    """Retrieve session data from memory with thread safety."""
+    with sessions_lock:
+        return sessions.get(session_id)
 
-async def delete_session(session_id: str):
-    """Delete session data from Redis."""
-    redis = await get_redis_client()
-    await redis.delete(f"session:{session_id}")
+def delete_session(session_id: str):
+    """Delete session data from memory with thread safety."""
+    with sessions_lock:
+        sessions.pop(session_id, None)
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize connections and check environment variables."""
-    logger.info("Concert Scout AI API starting up...")
+    logger.info("Concert Scout AI API starting up (fallback mode)...")
     
     # Check required environment variables
     required_vars = ["SPOTIFY_CLIENT", "SPOTIFY_SECRET", "TM_KEY", "GOOGLE_API_KEY"]
@@ -137,31 +121,20 @@ async def startup_event():
     else:
         logger.info("All required environment variables are set")
     
-    # Initialize Redis connection
-    try:
-        await get_redis_client()
-        logger.info("Redis connection established")
-    except Exception as e:
-        logger.warning(f"Redis connection failed: {e}. Using in-memory storage as fallback.")
-    
     # Initialize HTTP client
     await get_http_client()
     logger.info("HTTP client initialized")
     
-    logger.info("Concert Scout AI API startup complete")
+    logger.info("Concert Scout AI API startup complete (using in-memory storage)")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up connections."""
-    global http_client, redis_client
+    global http_client
     
     if http_client:
         await http_client.aclose()
         logger.info("HTTP client closed")
-    
-    if redis_client:
-        await redis_client.close()
-        logger.info("Redis connection closed")
 
 # Pydantic models for request/response
 class ChatRequest(BaseModel):
@@ -227,14 +200,8 @@ async def chat(request: Request, chat_request: ChatRequest):
         # Get or create session
         session = None
         if chat_request.session_id:
-            session_data = await get_session(chat_request.session_id)
-            if session_data:
-                # Recreate session from stored data
-                session = Session(
-                    id=session_data["id"],
-                    user_id=session_data["user_id"],
-                    app_name=session_data["app_name"]
-                )
+            session = get_session(chat_request.session_id)
+            if session:
                 logger.info(f"Using existing session: {chat_request.session_id}")
         
         if session is None:
@@ -245,14 +212,7 @@ async def chat(request: Request, chat_request: ChatRequest):
             logger.info(f"Created new session: {session.id}")
         
         # Store session data
-        session_data = {
-            "id": session.id,
-            "user_id": session.user_id,
-            "app_name": session.app_name,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
-        }
-        await store_session(session.id, session_data)
+        store_session(session.id, session)
         
         # Run the prompt with timeout
         try:
@@ -264,8 +224,7 @@ async def chat(request: Request, chat_request: ChatRequest):
             raise HTTPException(status_code=408, detail="Request timeout - the operation took too long")
         
         # Update stored session
-        session_data["updated_at"] = datetime.now().isoformat()
-        await store_session(updated_session.id, session_data)
+        store_session(updated_session.id, updated_session)
         
         # Extract the text response from events
         text_response = ""
@@ -298,14 +257,7 @@ async def create_session(request: Request, user_id: str = "default_user"):
         )
         
         # Store session data
-        session_data = {
-            "id": session.id,
-            "user_id": session.user_id,
-            "app_name": session.app_name,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
-        }
-        await store_session(session.id, session_data)
+        store_session(session.id, session)
         
         return SessionResponse(
             session_id=session.id,
@@ -321,13 +273,13 @@ async def create_session(request: Request, user_id: str = "default_user"):
 async def get_session_endpoint(request: Request, session_id: str):
     """Get session information."""
     try:
-        session_data = await get_session(session_id)
-        if session_data:
+        session = get_session(session_id)
+        if session:
             return {
                 "session_id": session_id,
-                "user_id": session_data["user_id"],
-                "created_at": session_data["created_at"],
-                "updated_at": session_data["updated_at"]
+                "user_id": session.user_id,
+                "created_at": session.created_at,
+                "updated_at": session.updated_at
             }
         else:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -342,7 +294,7 @@ async def get_session_endpoint(request: Request, session_id: str):
 async def delete_session_endpoint(request: Request, session_id: str):
     """Delete a session."""
     try:
-        await delete_session(session_id)
+        delete_session(session_id)
         return {"message": "Session deleted successfully"}
     except Exception as e:
         logger.error(f"Error deleting session: {str(e)}")
@@ -352,30 +304,29 @@ async def delete_session_endpoint(request: Request, session_id: str):
 async def health_check():
     """Health check endpoint."""
     try:
-        # Check Redis connection
-        redis = await get_redis_client()
-        await redis.ping()
-        redis_status = "healthy"
+        with sessions_lock:
+            active_sessions = len(sessions)
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "storage": "in-memory",
+            "active_sessions": active_sessions,
+            "version": "1.0.0"
+        }
     except Exception as e:
-        redis_status = f"unhealthy: {str(e)}"
-    
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "redis": redis_status,
-        "version": "1.0.0"
-    }
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 @app.get("/")
 async def root():
     """Root endpoint with API information."""
     return {
-        "message": "Concert Scout AI API",
+        "message": "Concert Scout AI API (Fallback Mode)",
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health"
-    }
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    } 

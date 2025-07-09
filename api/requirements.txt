@@ -1,6 +1,7 @@
 # Core FastAPI and web framework
 fastapi==0.115.13
 uvicorn==0.34.3
+gunicorn==23.0.0
 python-multipart==0.0.20
 
 # Pydantic for data validation
@@ -17,6 +18,17 @@ google-genai==1.21.1
 # Spotify API
 spotipy==2.25.1
 
-# HTTP requests
+# HTTP requests - async version for better concurrency
+httpx==0.28.1
 requests==2.32.4
+
+# Session storage and caching
+redis==5.2.1
+aioredis==2.0.1
+
+# Rate limiting and concurrency control
+slowapi==0.1.9
+
+# Async utilities
+asyncio-throttle==1.0.2
 

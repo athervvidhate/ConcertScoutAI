@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Start script for Render deployment
+# Start script for Railway deployment
 echo "Starting Concert Scout AI FastAPI server..."
 
 # Check if we're in the right directory
@@ -15,6 +15,6 @@ if [ -f "requirements.txt" ]; then
     pip install -r requirements.txt
 fi
 
-# Start the server
-echo "Starting server on port $PORT..."
-uvicorn app:app --host 0.0.0.0 --port $PORT 
+# Start the server with Gunicorn for better concurrency
+echo "Starting server on port $PORT with Gunicorn..."
+gunicorn app:app -c gunicorn.conf.py 
