@@ -20,6 +20,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from asyncio_throttle import Throttler
+from contextlib import asynccontextmanager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,51 +31,11 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(current_dir, '.env')
 load_dotenv(env_path)
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="Concert Scout AI API",
-    description="API for the Concert Scout AI agent",
-    version="1.0.0"
-)
-
 # Rate limiting setup
 limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # Development
-        "https://localhost:3000",  # Development with HTTPS
-        "https://*.onrender.com",  # Render domains
-        "https://*.vercel.app",    # Vercel domains
-        "https://*.railway.app",   # Railway domains
-        os.getenv("FRONTEND_URL", ""),  # Custom frontend URL
-    ] if os.getenv("FRONTEND_URL") else [
-        "http://localhost:3000",
-        "https://localhost:3000", 
-        "https://*.onrender.com",
-        "https://*.vercel.app",
-        "https://*.railway.app",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Global variables
-app_name = 'Concert Scout'
-runner = InMemoryRunner(
-    app_name=app_name,
-    agent=root_agent,
-)
-
-# Redis connection
+# Global variables - these will be initialized per worker
 redis_client: Optional[aioredis.Redis] = None
-
-# HTTP client for external API calls
 http_client: Optional[httpx.AsyncClient] = None
 
 # Throttler for external API calls
@@ -104,28 +65,58 @@ async def get_http_client() -> httpx.AsyncClient:
         )
     return http_client
 
+# Fallback in-memory storage for when Redis is not available
+in_memory_sessions: Dict[str, dict] = {}
+use_redis = True
+
 async def store_session(session_id: str, session_data: dict):
     """Store session data in Redis with expiration (as JSON)."""
-    redis = await get_redis_client()
-    session_json = json.dumps(session_data)
-    await redis.setex(f"session:{session_id}", 3600, session_json)
+    global in_memory_sessions
+    
+    if use_redis:
+        try:
+            redis = await get_redis_client()
+            session_json = json.dumps(session_data)
+            await redis.setex(f"session:{session_id}", 3600, session_json)
+        except Exception as e:
+            logger.warning(f"Redis storage failed, falling back to in-memory: {e}")
+            in_memory_sessions[session_id] = session_data
+    else:
+        in_memory_sessions[session_id] = session_data
 
 async def get_session(session_id: str) -> Optional[dict]:
     """Retrieve session data from Redis (as JSON)."""
-    redis = await get_redis_client()
-    session_json = await redis.get(f"session:{session_id}")
-    if session_json:
-        return json.loads(session_json)
-    return None
+    global in_memory_sessions
+    
+    if use_redis:
+        try:
+            redis = await get_redis_client()
+            session_json = await redis.get(f"session:{session_id}")
+            if session_json:
+                return json.loads(session_json)
+        except Exception as e:
+            logger.warning(f"Redis retrieval failed, falling back to in-memory: {e}")
+            return in_memory_sessions.get(session_id)
+    return in_memory_sessions.get(session_id)
 
 async def delete_session(session_id: str):
     """Delete session data from Redis."""
-    redis = await get_redis_client()
-    await redis.delete(f"session:{session_id}")
+    global in_memory_sessions
+    
+    if use_redis:
+        try:
+            redis = await get_redis_client()
+            await redis.delete(f"session:{session_id}")
+        except Exception as e:
+            logger.warning(f"Redis deletion failed, falling back to in-memory: {e}")
+            in_memory_sessions.pop(session_id, None)
+    else:
+        in_memory_sessions.pop(session_id, None)
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize connections and check environment variables."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager."""
+    # Startup
     logger.info("Concert Scout AI API starting up...")
     
     # Check required environment variables
@@ -138,21 +129,23 @@ async def startup_event():
         logger.info("All required environment variables are set")
     
     # Initialize Redis connection
+    global use_redis
     try:
         await get_redis_client()
         logger.info("Redis connection established")
     except Exception as e:
         logger.warning(f"Redis connection failed: {e}. Using in-memory storage as fallback.")
+        use_redis = False
     
     # Initialize HTTP client
     await get_http_client()
     logger.info("HTTP client initialized")
     
     logger.info("Concert Scout AI API startup complete")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up connections."""
+    
+    yield
+    
+    # Shutdown
     global http_client, redis_client
     
     if http_client:
@@ -162,6 +155,47 @@ async def shutdown_event():
     if redis_client:
         await redis_client.close()
         logger.info("Redis connection closed")
+    
+    logger.info("Concert Scout AI API shutdown complete")
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="Concert Scout AI API",
+    description="API for the Concert Scout AI agent",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Add rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",  # Development
+        "https://localhost:3000",  # Development with HTTPS
+        "https://*.vercel.app",    # Vercel domains
+        "https://*.railway.app",   # Railway domains
+        os.getenv("FRONTEND_URL", ""),  # Custom frontend URL
+    ] if os.getenv("FRONTEND_URL") else [
+        "http://localhost:3000",
+        "https://localhost:3000", 
+        "https://*.vercel.app",
+        "https://*.railway.app",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Global variables
+app_name = 'Concert Scout'
+runner = InMemoryRunner(
+    app_name=app_name,
+    agent=root_agent,
+)
 
 # Pydantic models for request/response
 class ChatRequest(BaseModel):
@@ -289,7 +323,7 @@ async def chat(request: Request, chat_request: ChatRequest):
 
 @app.post("/sessions", response_model=SessionResponse)
 @limiter.limit("20/minute")
-async def create_session(request: Request, user_id: str = "default_user"):
+async def create_session_endpoint(request: Request, user_id: str = "default_user"):
     """Create a new chat session."""
     try:
         session = await runner.session_service.create_session(
@@ -312,6 +346,7 @@ async def create_session(request: Request, user_id: str = "default_user"):
             user_id=user_id,
             message="Session created successfully"
         )
+    
     except Exception as e:
         logger.error(f"Error creating session: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error creating session: {str(e)}")
@@ -353,18 +388,41 @@ async def health_check():
     """Health check endpoint."""
     try:
         # Check Redis connection
-        redis = await get_redis_client()
-        await redis.ping()
-        redis_status = "healthy"
+        if use_redis:
+            try:
+                redis = await get_redis_client()
+                await redis.ping()
+                redis_status = "healthy"
+            except Exception as e:
+                redis_status = f"unhealthy: {str(e)}"
+        else:
+            redis_status = "disabled (using in-memory storage)"
+        
+        # Count active sessions
+        if use_redis:
+            try:
+                redis = await get_redis_client()
+                # Count session keys
+                session_keys = await redis.keys("session:*")
+                active_sessions = len(session_keys)
+            except Exception:
+                active_sessions = len(in_memory_sessions)
+        else:
+            active_sessions = len(in_memory_sessions)
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "redis": redis_status,
+            "active_sessions": active_sessions,
+            "version": "1.0.0"
+        }
     except Exception as e:
-        redis_status = f"unhealthy: {str(e)}"
-    
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "redis": redis_status,
-        "version": "1.0.0"
-    }
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 @app.get("/")
 async def root():
