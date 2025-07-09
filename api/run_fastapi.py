@@ -21,14 +21,12 @@ if __name__ == "__main__":
     redis_url = os.getenv("REDIS_URL")
     if redis_url:
         print("✅ Redis connection configured - using production mode")
-        app_module = "app"
     else:
         print("⚠️  No Redis URL found - using fallback mode (in-memory storage)")
         print("   Add REDIS_URL to your .env file for better performance")
-        app_module = "app_fallback"
     
     uvicorn.run(
-        f"{app_module}:app",  # Use the appropriate app module
+        "app:app",  # Use the main app module
         host="0.0.0.0",
         port=8000,
         reload=True,  # Enable auto-reload for development
