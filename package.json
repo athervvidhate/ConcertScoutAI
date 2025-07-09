@@ -8,7 +8,9 @@
     "dev:frontend": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
     "start": "cd frontend && npm start",
-    "install:all": "npm install && cd frontend && npm install"
+    "install:all": "npm install && cd frontend && npm install && cd ../api && pip install -r requirements.txt",
+    "install:backend": "cd api && pip install -r requirements.txt",
+    "test:concurrent": "cd api && python -c \"import requests; import threading; import time; [threading.Thread(target=lambda: requests.post('http://localhost:8000/chat', json={'message': 'drake concerts in london', 'user_id': f'user_{i}'})).start() for i in range(5)]; time.sleep(2)\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
