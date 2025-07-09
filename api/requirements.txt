@@ -22,9 +22,8 @@ spotipy==2.25.1
 httpx==0.28.1
 requests==2.32.4
 
-# Session storage and caching
+# Session storage and caching (Python 3.12 compatible)
 redis==5.2.1
-aioredis==2.0.1
 
 # Rate limiting and concurrency control
 slowapi==0.1.9
