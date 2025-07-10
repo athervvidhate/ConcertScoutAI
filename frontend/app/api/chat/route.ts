@@ -19,9 +19,9 @@ export async function POST(request: NextRequest) {
     
     console.log(`Proxying request to: ${BACKEND_URL}/chat`);
     
-    // Add timeout to prevent hanging requests
+    // Increase timeout to 3 minutes for AI processing
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for chat
+    const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout for chat
     
     const response = await fetch(`${BACKEND_URL}/chat`, {
       method: 'POST',
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        errorMessage = 'Request timeout - backend took too long to respond';
+        errorMessage = 'Request timeout - AI processing is taking longer than expected. Please try again with a simpler query.';
         statusCode = 408;
       } else if (error.message.includes('ECONNRESET')) {
         errorMessage = 'Connection to backend was reset';

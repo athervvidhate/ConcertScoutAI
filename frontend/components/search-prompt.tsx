@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Loader2, ArrowUp, MessageCircle, X } from "lucide-react"
+import { Loader2, ArrowUp, MessageCircle, X, Clock } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { parseAiResponse } from "@/lib/parseAiResponse"
 import { AiChatBubble } from "@/components/ai-chat-bubble"
@@ -13,6 +13,7 @@ import { AiChatBubble } from "@/components/ai-chat-bubble"
 export function SearchPrompt() {
   const [prompt, setPrompt] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [loadingTime, setLoadingTime] = useState(0)
   const [followUpMessage, setFollowUpMessage] = useState<string | null>(null)
   const [conversationMessages, setConversationMessages] = useState<string[]>([])
   const [sessionId, setSessionId] = useState<string | undefined>(undefined)
@@ -20,6 +21,31 @@ export function SearchPrompt() {
   const [isHovered, setIsHovered] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const router = useRouter()
+
+  // Timer for loading progress
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (isLoading) {
+      interval = setInterval(() => {
+        setLoadingTime(prev => prev + 1)
+      }, 1000)
+    } else {
+      setLoadingTime(0)
+    }
+    return () => clearInterval(interval)
+  }, [isLoading])
+
+  const getLoadingMessage = () => {
+    if (loadingTime < 30) {
+      return "Analyzing your request..."
+    } else if (loadingTime < 60) {
+      return "Searching for concerts..."
+    } else if (loadingTime < 120) {
+      return "Processing results..."
+    } else {
+      return "Almost done..."
+    }
+  }
 
   const handleSubmit = async () => {
     if (!prompt.trim() || isLoading) return
@@ -86,6 +112,9 @@ export function SearchPrompt() {
       } else if (error.apiError?.isServerError) {
         errorMessage = "Server error occurred. Please try again in a few moments.";
         errorType = "server_error";
+      } else if (error.message?.includes('timeout')) {
+        errorMessage = "The request took too long to process. Please try with a simpler query or try again later.";
+        errorType = "timeout";
       }
       
       const errorData = {
@@ -169,19 +198,45 @@ export function SearchPrompt() {
           <Button
             onClick={handleSubmit}
             disabled={!prompt.trim() || isLoading}
-            className="absolute top-3 right-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md p-2 h-auto z-20 flex items-center gap-2"
+            className="absolute top-3 right-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md p-2 h-auto z-20"
           >
             {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Thinking...</span>
-              </>
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <ArrowUp className="h-4 w-4" />
             )}
           </Button>
         </div>
       </div>
+
+      {/* Loading progress indicator - moved below search box */}
+      {isLoading && (
+        <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 space-y-3 animate-in slide-in-from-top-2 duration-300 mt-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-purple-400" />
+              <span className="text-sm font-medium text-purple-400">{getLoadingMessage()}</span>
+            </div>
+          </div>
+          
+          {/* Progress bar */}
+          <div className="w-full bg-gray-700 rounded-full h-2">
+            <div 
+              className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-300"
+              style={{ 
+                width: `${Math.min((loadingTime / 75) * 100, 100)}%` 
+              }}
+            ></div>
+          </div>
+          
+          <p className="text-xs text-gray-500">
+            {loadingTime > 60 ? 
+              "This is taking longer than usual. The AI is processing a complex request..." : 
+              "Please wait while the AI analyzes your request and searches for concerts..."
+            }
+          </p>
+        </div>
+      )}
 
       {followUpMessage && (
         <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">

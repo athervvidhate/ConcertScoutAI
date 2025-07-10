@@ -5,6 +5,7 @@ import os
 import logging
 from uuid import uuid4
 import json
+import time
 
 from concert_scout_agent.agent import root_agent
 from dotenv import load_dotenv
@@ -254,6 +255,7 @@ async def run_prompt(session: Session, new_message: str, user_id: str) -> tuple[
 @limiter.limit("10/minute")  # Rate limit: 10 requests per minute per IP
 async def chat(request: Request, chat_request: ChatRequest):
     """Send a message to the Concert Scout AI agent."""
+    start_time = time.time()
     try:
         logger.info(f"Received chat request from user: {chat_request.user_id}")
         user_id = chat_request.user_id
@@ -288,14 +290,19 @@ async def chat(request: Request, chat_request: ChatRequest):
         }
         await store_session(session.id, session_data)
         
+        # Log processing start
+        logger.info(f"Starting AI processing for session: {session.id}")
+        
         # Run the prompt with timeout
         try:
             updated_session, events = await asyncio.wait_for(
                 run_prompt(session, chat_request.message, user_id),
-                timeout=60.0  # 60 second timeout
+                timeout=180.0  # 3 minute timeout for AI processing
             )
         except asyncio.TimeoutError:
-            raise HTTPException(status_code=408, detail="Request timeout - the operation took too long")
+            processing_time = time.time() - start_time
+            logger.error(f"Request timeout after {processing_time:.2f}s for session: {session.id}")
+            raise HTTPException(status_code=408, detail="Request timeout - AI processing took too long. Please try with a simpler query.")
         
         # Update stored session
         session_data["updated_at"] = datetime.now().isoformat()
@@ -307,7 +314,9 @@ async def chat(request: Request, chat_request: ChatRequest):
             if event.get("type") == "text" and event.get("author") != "user":
                 text_response += event.get("content", "")
         
-        logger.info(f"Chat request completed successfully for session: {session.id}")
+        processing_time = time.time() - start_time
+        logger.info(f"Chat request completed in {processing_time:.2f}s for session: {session.id}")
+        
         return ChatResponse(
             response=text_response,
             session_id=session.id,
@@ -318,7 +327,8 @@ async def chat(request: Request, chat_request: ChatRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error processing chat request: {str(e)}")
+        processing_time = time.time() - start_time
+        logger.error(f"Error processing chat request after {processing_time:.2f}s: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
 
 @app.post("/sessions", response_model=SessionResponse)
