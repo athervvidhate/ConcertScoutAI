@@ -59,7 +59,7 @@ export default function ResultsPage() {
 
   if (isLoading) {
     return (
-      <main className="flex min-h-screen flex-col p-4 md:p-24">
+      <main className="flex flex-col p-4 md:p-24 min-h-full">
         <div className="w-full max-w-6xl mx-auto">
           <ResultsSkeleton />
         </div>
@@ -69,7 +69,7 @@ export default function ResultsPage() {
 
   if (!responseData) {
     return (
-      <main className="flex min-h-screen flex-col p-4 md:p-24">
+      <main className="flex flex-col p-4 md:p-24 min-h-full">
         <div className="w-full max-w-6xl mx-auto space-y-8">
           <div className="text-center py-12">
             <h2 className="text-2xl font-bold text-white mb-4">No results found</h2>
@@ -88,7 +88,7 @@ export default function ResultsPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col p-4 md:p-24">
+    <main className="flex flex-col p-4 md:p-24 min-h-full">
       <div className="w-full max-w-6xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <Link href="/">
