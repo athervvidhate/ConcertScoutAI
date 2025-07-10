@@ -138,7 +138,34 @@ export default function ResultsPage() {
                   </div>
                 </div>
               </>
-            ) : responseData.errorType === 'server_error' ? (
+            ) : responseData.errorType === 'timeout' ? (
+              <>
+                <div className="mb-6">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-orange-500/20 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <h2 className="text-2xl font-bold text-orange-500 mb-4">Request Timeout</h2>
+                <p className="text-gray-400 mb-4 max-w-md mx-auto leading-relaxed">
+                  The AI processing took longer than expected. This can happen with complex requests.
+                </p>
+                <p className="text-gray-500 text-sm mb-8">
+                  Try simplifying your search or try again later.
+                </p>
+                <div className="space-y-4">
+                  <Link href="/">
+                    <Button className="bg-purple-600 hover:bg-purple-700">
+                      Try Again
+                    </Button>
+                  </Link>
+                  <div className="text-xs text-gray-600">
+                    Tip: Try being more specific with your search terms
+                  </div>
+                </div>
+              </>
+            ) : (
               <>
                 <div className="mb-6">
                   <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
@@ -150,18 +177,6 @@ export default function ResultsPage() {
                 <h2 className="text-2xl font-bold text-red-500 mb-4">Server Error</h2>
                 <p className="text-gray-400 mb-8 max-w-md mx-auto">
                   There was a temporary server issue. Please try again in a few moments.
-                </p>
-                <Link href="/">
-                  <Button className="bg-purple-600 hover:bg-purple-700">
-                    Try Again
-                  </Button>
-                </Link>
-              </>
-            ) : (
-              <>
-                <h2 className="text-2xl font-bold text-white mb-4">Something went wrong</h2>
-                <p className="text-gray-400 mb-8">
-                  {responseData.response}
                 </p>
                 <Link href="/">
                   <Button className="bg-purple-600 hover:bg-purple-700">
