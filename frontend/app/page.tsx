@@ -3,7 +3,7 @@ import { Instructions } from "@/components/instructions"
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4 md:p-24">
+    <main className="flex flex-col items-center justify-center p-4 md:p-24 min-h-full">
       <div className="w-full max-w-3xl mx-auto space-y-8">
         <div className="text-center space-y-4">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">Concert Scout AI</h1>

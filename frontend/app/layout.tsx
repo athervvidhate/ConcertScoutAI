@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Analytics } from '@vercel/analytics/react'
+import { Footer } from "@/components/footer"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -27,7 +28,12 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/favicon.svg" />
       </head>
       <body className={inter.className}>
-        {children}
+        <div className="flex min-h-screen flex-col">
+          <div className="flex-1">
+            {children}
+          </div>
+          <Footer />
+        </div>
         <Analytics />
       </body>
     </html>
