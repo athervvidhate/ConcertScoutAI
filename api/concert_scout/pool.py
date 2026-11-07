@@ -7,12 +7,13 @@ import httpx
 from pydantic import BaseModel
 from redis.asyncio import Redis
 
-from concert_scout import cache
+from concert_scout import cache, clock
 from concert_scout.models import Concert, Place
 from concert_scout.names import normalize
 from concert_scout.sources import ticketmaster
 
 CACHE_TTL = dt.timedelta(hours=6)
+ELSEWHERE_SIZE = 12
 DEFAULT_WINDOW = dt.timedelta(days=180)
 
 
@@ -44,13 +45,13 @@ async def find_concerts(
     artists: Sequence[str],
     start: dt.date | None,
     end: dt.date | None,
-    today: dt.date,
+    now: dt.datetime,
 ) -> list[Concert]:
     """Every Concert for the Search, seed Artists first, then the pool soonest first.
 
     Chunks and lookups stay whole in the cache, so any date window can share them.
     """
-    first, last = date_window(start, end, today)
+    first, last = date_window(start, end, now.date())
     state = (
         (place.country_code, place.state_code)
         if place and place.country_code and place.state_code
@@ -63,19 +64,51 @@ async def find_concerts(
     )
     chunks: list[list[Concert]] = []
     if state or point:
-        months = month_chunks(first, last)
+        earliest = _earliest(first, now.date())
+        months = month_chunks(earliest, last)
         chunks = await asyncio.gather(
-            *(_chunk(client, redis, point, m, today, state, radius) for m in months)
+            *(_chunk(client, redis, point, m, earliest, state, radius) for m in months)
         )
     # An Artist lookup already holds every listed date, so only a chosen end cuts it short.
     seed_last = end or dt.date.max
-    from_seeds = [c for group in seeds for c in group if _within(c, first, seed_last)]
-    from_pool = [c for group in chunks for c in group if _within(c, first, last)]
+    from_seeds = [c for group in seeds for c in group if _ahead(c, start, seed_last, now)]
+    from_pool = [c for group in chunks for c in group if _ahead(c, start, last, now)]
     return list({c.id: c for c in [*from_seeds, *from_pool]}.values())
 
 
-def _within(concert: Concert, first: dt.date, last: dt.date) -> bool:
-    return concert.date is not None and first <= concert.date <= last
+async def find_elsewhere(
+    client: httpx.AsyncClient,
+    redis: Redis,
+    keyword: str,
+    start: dt.date | None,
+    end: dt.date | None,
+    now: dt.datetime,
+) -> list[Concert]:
+    """Concerts that match a Search's words in any place. This costs one Ticketmaster call."""
+    first, last = date_window(start, end, now.date())
+    earliest = _earliest(first, now.date())
+    key = f"elsewhere:{normalize(keyword)}:{earliest}:{last}"
+    if cached := await cache.read(redis, key, CachedConcerts):
+        concerts = cached.concerts
+    else:
+        concerts = await ticketmaster.find_keyword(
+            client, redis, keyword, earliest, last, ELSEWHERE_SIZE
+        )
+        await cache.write(redis, key, CachedConcerts(concerts=concerts), CACHE_TTL)
+    return [concert for concert in concerts if _ahead(concert, start, last, now)]
+
+
+def _earliest(first: dt.date, today: dt.date) -> dt.date:
+    """The first day to ask for. A venue can still be on the visitor's yesterday."""
+    return first - dt.timedelta(days=1) if first == today else first
+
+
+def _ahead(concert: Concert, start: dt.date | None, last: dt.date, now: dt.datetime) -> bool:
+    """Whether a Concert is in the window and not over by the calendar at its own venue."""
+    if concert.date is None:
+        return False
+    venue_today = clock.date_at(now, concert.time_zone)
+    return max(start or venue_today, venue_today) <= concert.date <= last
 
 
 def _scope(point: str | None, state: tuple[str, str] | None, radius: int) -> str:
@@ -89,7 +122,7 @@ async def _chunk(
     redis: Redis,
     point: str | None,
     month: dt.date,
-    today: dt.date,
+    earliest: dt.date,
     state: tuple[str, str] | None,
     radius: int,
 ) -> list[Concert]:
@@ -101,7 +134,7 @@ async def _chunk(
         client,
         redis,
         point,
-        max(month, today),
+        max(month, earliest),
         month.replace(day=last_day),
         state=state,
         radius=radius,

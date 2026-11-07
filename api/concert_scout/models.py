@@ -36,6 +36,8 @@ class Concert(BaseModel):
     artists: list[Artist]
     date: dt.date | None = None
     time: dt.time | None = None
+    # The venue's IANA zone. `date` and `time` already read in it.
+    time_zone: str | None = None
     venue: str | None = None
     city: str | None = None
     region: str | None = None
@@ -56,6 +58,13 @@ class Recommendation(BaseModel):
 
 class Poster(BaseModel):
     recommendations: list[Recommendation]
+
+
+class Elsewhere(BaseModel):
+    """Nothing fit the Search's place, so these match its words anywhere. No model chose them."""
+
+    keyword: str
+    concerts: list[Concert]
 
 
 class Place(BaseModel):
@@ -88,10 +97,6 @@ class SimilarArtist(BaseModel):
 
 class Places(BaseModel):
     places: list[Place]
-
-
-class Nearby(BaseModel):
-    concerts: list[Concert]
 
 
 class Track(BaseModel):

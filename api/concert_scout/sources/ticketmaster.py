@@ -8,7 +8,7 @@ import httpx
 from pygeohash import encode
 from redis.asyncio import Redis
 
-from concert_scout import limits
+from concert_scout import clock, limits
 from concert_scout.models import Artist, Concert, Place, Presale, Price
 from concert_scout.names import normalize
 from concert_scout.sources import http
@@ -117,6 +117,21 @@ async def _find(
     return concerts + [concert for page, _ in rest for concert in page]
 
 
+async def find_keyword(
+    client: httpx.AsyncClient, redis: Redis, keyword: str, start: dt.date, end: dt.date, size: int
+) -> list[Concert]:
+    """The soonest music matching a word anywhere, in one call, however many there are."""
+    params: dict[str, str | int] = {
+        "keyword": keyword,
+        "classificationName": "music",
+        "sort": "date,asc",
+        "size": size,
+        "localStartDateTime": f"{start}T00:00:00,{end}T23:59:59",
+    }
+    concerts, _ = await _page(client, redis, params, 0)
+    return concerts
+
+
 async def _page(
     client: httpx.AsyncClient, redis: Redis, params: dict[str, str | int], page: int
 ) -> tuple[list[Concert], int]:
@@ -163,6 +178,7 @@ def parse_concert(record: dict[str, Any]) -> Concert:
         ],
         date=_parse_date(start),
         time=_parse_time(start),
+        time_zone=venue.get("timezone") if clock.known_zone(venue.get("timezone")) else None,
         venue=venue.get("name"),
         city=venue.get("city", {}).get("name"),
         region=venue.get("state", {}).get("stateCode"),

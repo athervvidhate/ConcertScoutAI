@@ -1,4 +1,3 @@
-import datetime as dt
 import logging
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
@@ -17,12 +16,11 @@ from redis.exceptions import RedisError
 
 from concert_scout import cache, feedback, interpreter, limits, security, spotify
 from concert_scout.config import Settings
-from concert_scout.models import ArtistProfiles, ImportedTaste, Nearby, Place, SearchError
+from concert_scout.models import ArtistProfiles, ImportedTaste, Place, SearchError
 from concert_scout.pipeline import (
     ASK_FOR_A_SEARCH,
     Services,
     find_artist_profiles,
-    find_nearby,
     run_search,
 )
 from concert_scout.security import Refused, SecurityHeaders
@@ -64,6 +62,8 @@ class SearchRequest(BaseModel):
     taste: Annotated[list[ArtistName], Field(max_length=MAX_TASTE)] = []
     # A location the visitor already shared, used when the Search names no place.
     near: Coordinates | None = None
+    # The browser's zone, so "this weekend" and "today" mean the visitor's own days.
+    time_zone: Annotated[str, StringConstraints(max_length=64)]
 
 
 def _catalog_client(
@@ -174,16 +174,14 @@ def create_app(
         if origin and origin not in settings.cors_origins:
             raise Refused(403, "origin_refused", "This site cannot run Searches.")
         if not settings.search_enabled:
-            message = "Search is off for now. Nearby Concerts still work."
+            message = "Search is off for now."
             raise Refused(503, "search_off", message)
         ip = security.client_ip(request, settings.client_ip_header)
         try:
             await limits.check_spend(services.redis)
             await limits.visitor_call(services.redis, "search", ip, settings.searches_per_hour)
         except limits.SpendCapReached as exc:
-            message = (
-                "Concert Scout has used its Search budget for now. Nearby Concerts still work."
-            )
+            message = "Concert Scout has used its Search budget for now."
             raise Refused(503, "budget_reached", message, exc.retry_after) from None
         except limits.VisitorLimitReached as exc:
             minutes = exc.retry_after // 60 + 1
@@ -236,27 +234,6 @@ def create_app(
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/nearby", response_model=Nearby, response_model_exclude_none=True)
-    async def nearby(
-        request: Request,
-        lat: Annotated[float, Query(ge=-90, le=90)],
-        lon: Annotated[float, Query(ge=-180, le=180)],
-    ) -> Nearby | JSONResponse:
-        await limit_visitor(request, "nearby", limits.NEARBY_PER_HOUR)
-        try:
-            concerts = await find_nearby(lat, lon, services, dt.date.today())
-        except limits.DailyLimitReached as exc:
-            message = "We have used today's Ticketmaster allowance. Try again tomorrow."
-            error = SearchError(
-                code="ticketmaster_limit", message=message, retry_after=exc.retry_after
-            )
-            return _failure(429, error)
-        except ticketmaster.TicketmasterError as exc:
-            logger.warning("Ticketmaster failed: %s", exc)
-            message = "Ticketmaster is not responding. Try again in a minute."
-            return _failure(503, SearchError(code="ticketmaster_unavailable", message=message))
-        return Nearby(concerts=concerts)
-
     @app.get("/artist", response_model=ArtistProfiles, response_model_exclude_none=True)
     async def artist(
         request: Request, name: Annotated[str, Query(min_length=1, max_length=200)]
@@ -276,7 +253,7 @@ def create_app(
     async def search(search: SearchRequest) -> AsyncIterator[ServerSentEvent]:
         here = search.near
         near = Place(name="Near you", lat=here.lat, lon=here.lon) if here else None
-        async for event in run_search(search.text, search.taste, near, services):
+        async for event in run_search(search.text, search.taste, near, search.time_zone, services):
             yield event
 
     return app

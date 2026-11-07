@@ -1,5 +1,7 @@
 import { EventSourceParserStream } from "eventsource-parser/stream";
 
+import { viewerZone } from "@/lib/format";
+
 // Locally the API sits on the same machine as the page, so a phone on the network finds it too.
 function localApi(): string {
   if (typeof window === "undefined") return "http://127.0.0.1:8000";
@@ -25,6 +27,8 @@ export type Concert = {
   artists: Artist[];
   date?: string;
   time?: string;
+  // The venue's IANA zone. `date` and `time` already read in it.
+  time_zone?: string;
   venue?: string;
   city?: string;
   region?: string;
@@ -79,12 +83,16 @@ export async function refusal(response: Response): Promise<SearchRefused> {
   }
 }
 
+// Nothing fit the Search's place, so these match its words anywhere.
+export type Elsewhere = { keyword: string; concerts: Concert[] };
+
 export type SearchEvent =
   | { event: "status"; data: { step: string; message: string } }
   | { event: "interpreted"; data: Interpreted }
   | { event: "pool"; data: { total: number } }
   | { event: "candidates"; data: Candidates }
   | { event: "poster"; data: { recommendations: Recommendation[] } }
+  | { event: "elsewhere"; data: Elsewhere }
   | { event: "error"; data: SearchError }
   | { event: "done"; data: Record<string, never> };
 
@@ -98,7 +106,7 @@ export async function* streamSearch(
   const response = await fetch(`${API_URL}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, token, taste, near }),
+    body: JSON.stringify({ text, token, taste, near, time_zone: viewerZone() }),
     signal,
   });
   if (!response.ok || !response.body) {

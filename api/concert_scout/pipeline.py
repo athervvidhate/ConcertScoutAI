@@ -12,12 +12,13 @@ from pydantic import BaseModel
 from pydantic_ai.models import Model
 from redis.asyncio import Redis
 
-from concert_scout import assemble, limits, matching, pool, similarity, telemetry
+from concert_scout import assemble, clock, limits, matching, pool, similarity, telemetry
 from concert_scout.interpreter import Interpretation, InterpreterError, interpret
 from concert_scout.models import (
     ArtistProfile,
     Candidates,
     Concert,
+    Elsewhere,
     Interpreted,
     Place,
     PoolTotal,
@@ -43,8 +44,6 @@ logger = logging.getLogger(__name__)
 ASK_FOR_A_SEARCH = "Tell us an Artist, a style or a place."
 NEEDS_A_PLACE = "Add a place or an Artist, or press the location button."
 # The home page shows the soonest of these, so a month of Concerts is plenty.
-NEARBY_WINDOW = dt.timedelta(days=30)
-NEARBY_SIZE = 12
 # With no place there is no pool, so this many similar Artists get looked up by name.
 DIRECT_LOOKUPS = 15
 # Imported Artists past this many join as names only, so a long list costs no extra API calls.
@@ -62,15 +61,6 @@ class Services:
     redis: Redis
     model: Model
     turnstile: httpx.AsyncClient
-
-
-async def find_nearby(lat: float, lon: float, services: Services, today: dt.date) -> list[Concert]:
-    """Notable Concerts soonest first, for the home page. This path never calls a model."""
-    place = Place(name="Nearby", lat=lat, lon=lon)
-    concerts = await pool.find_concerts(
-        services.ticketmaster, services.redis, place, [], today, today + NEARBY_WINDOW, today
-    )
-    return [candidate.concert for candidate in matching.notable(concerts)[:NEARBY_SIZE]]
 
 
 async def find_artist_profile(name: str, services: Services) -> ArtistProfile:
@@ -162,12 +152,37 @@ async def _recommend(
     return assemble.from_matches(shortlist) if picks and not recommendations else recommendations
 
 
+async def _find_elsewhere(
+    interpretation: Interpretation, place: Place, services: Services, now: dt.datetime
+) -> Elsewhere | None:
+    """The Poster has already answered this Search, so a failure here only means no extra list."""
+    words = [*interpretation.artists, *interpretation.tags, *interpretation.descriptors]
+    if not words:
+        return None
+    try:
+        with telemetry.step("elsewhere"):
+            concerts = await pool.find_elsewhere(
+                services.ticketmaster,
+                services.redis,
+                words[0],
+                interpretation.start,
+                interpretation.end,
+                now,
+            )
+    except (ticketmaster.TicketmasterError, limits.DailyLimitReached) as exc:
+        logger.warning("Elsewhere lookup failed: %s", type(exc).__name__)
+        return None
+    city = place.name.split(",")[0].casefold()
+    others = [concert for concert in concerts if (concert.city or "").casefold() != city]
+    return Elsewhere(keyword=words[0], concerts=others) if others else None
+
+
 async def _steps(
-    text: str, imported: Sequence[str], near: Place | None, services: Services, today: dt.date
+    text: str, imported: Sequence[str], near: Place | None, services: Services, now: dt.datetime
 ) -> AsyncIterator[ServerSentEvent]:
     yield _event("status", Status(step="interpret", message="Reading your Search"))
     with telemetry.step("interpret"):
-        interpretation = await interpret(text, today, services.model)
+        interpretation = await interpret(text, now.date(), services.model)
     names_only: Sequence[str] = ()
     # A Taste typed into this Search says what the person wants now, so it beats an import.
     if not (interpretation.artists or interpretation.tags or interpretation.descriptors):
@@ -215,7 +230,7 @@ async def _steps(
                 lookups,
                 interpretation.start,
                 interpretation.end,
-                today,
+                now,
             )
 
     # With a place, the pool needs nothing from the Taste, so the slowest steps overlap.
@@ -285,14 +300,19 @@ async def _steps(
         with telemetry.step("rank"):
             recommendations = await _recommend(interpretation, shortlist, artist_tags, services)
     yield _event("poster", Poster(recommendations=recommendations))
+    if place and taste and not recommendations:
+        elsewhere = await _find_elsewhere(interpretation, place, services, now)
+        if elsewhere:
+            yield _event("elsewhere", elsewhere)
 
 
 async def run_search(
-    text: str, imported: Sequence[str], near: Place | None, services: Services
+    text: str, imported: Sequence[str], near: Place | None, time_zone: str, services: Services
 ) -> AsyncIterator[ServerSentEvent]:
     with telemetry.search() as usage:
         try:
-            async for event in stream_search(text, imported, near, services, dt.date.today()):
+            now = clock.now_in(time_zone)
+            async for event in stream_search(text, imported, near, services, now):
                 yield event
         finally:
             # A visitor who leaves early has still cost money, so a cancel must not skip this.
@@ -303,10 +323,10 @@ async def run_search(
 
 
 async def stream_search(
-    text: str, imported: Sequence[str], near: Place | None, services: Services, today: dt.date
+    text: str, imported: Sequence[str], near: Place | None, services: Services, now: dt.datetime
 ) -> AsyncIterator[ServerSentEvent]:
     try:
-        async for event in _steps(text, imported, near, services, today):
+        async for event in _steps(text, imported, near, services, now):
             yield event
     except InterpreterError as exc:
         logger.warning("Interpreter failed: %s", exc)
